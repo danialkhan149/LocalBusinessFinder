@@ -8,7 +8,9 @@
 
 html, body {
     font-family: 'Segoe UI', system-ui, sans-serif;
-    background: #f4f6f9;
+    background: #0f172a;
+    margin: 0;
+    padding: 0;
 }
 
 .btn-accent {
@@ -91,7 +93,7 @@ html, body {
     color: var(--accent);
 }
 .sidebar-footer { margin-top: auto; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,.08); }
-.shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+.shell-main { flex: 1; display: flex; flex-direction: column; min-width: 0; background: #f4f6f9; }
 .topbar {
     background: #fff;
     border-bottom: 1px solid #e2e8f0;

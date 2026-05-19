@@ -18,20 +18,24 @@
     </div>
 </div>
 
-<div class="landing position-relative">
+<div class="landing position-relative overflow-hidden">
+    <!-- Background Watermark Logo -->
+    <div class="position-absolute top-50 start-50 translate-middle" style="z-index: 0; pointer-events: none; opacity: 0.3;">
+        <img src="/images/logo.png" class="hollow-center-img" style="width: 150vw; max-width: 1000px;" alt="" />
+    </div>
     <nav class="landing-nav position-absolute w-100 z-3">
         <div class="container d-flex justify-content-between align-items-center py-4">
             <div class="logo fs-4 fw-bolder text-white text-shadow-sm d-flex align-items-center">
                 <img src="/images/logo.png" alt="Logo" style="height: 40px; margin-right: 10px;" /> PINDI KI KHOJ
             </div>
             <div class="d-flex gap-3">
-                <a href="/account/login" target="_top" class="btn btn-outline-light rounded-pill px-4 py-2 fw-bold">Sign In</a>
-                <a href="/account/register" target="_top" class="btn btn-gradient rounded-pill px-4 py-2">Get Started</a>
+                <a href="/account/login" class="btn btn-outline-light rounded-pill px-4 py-2 fw-bold">Sign In</a>
+                <a href="/account/register" class="btn btn-gradient rounded-pill px-4 py-2">Get Started</a>
             </div>
         </div>
     </nav>
 
-    <section class="hero min-vh-100 d-flex align-items-center position-relative overflow-hidden pt-5">
+    <section class="hero d-flex align-items-center position-relative overflow-hidden pb-2" style="padding-top: 9rem;">
         <!-- Abstract Background Elements -->
         <div class="position-absolute top-0 end-0 translate-middle p-5 bg-accent opacity-25 rounded-circle blur-3xl" style="width: 40vw; height: 40vw; filter: blur(100px);"></div>
         <div class="position-absolute bottom-0 start-0 translate-middle p-5 bg-primary opacity-25 rounded-circle blur-3xl" style="width: 50vw; height: 50vw; filter: blur(120px);"></div>
@@ -47,21 +51,21 @@
                     <svg class="position-absolute w-100 h-100 start-0 bottom-0 translate-middle-y mt-2" style="z-index:-1; opacity:0.3" viewBox="0 0 200 20" preserveAspectRatio="none"><path d="M0,10 Q100,20 200,10" stroke="var(--accent)" stroke-width="8" fill="none"/></svg>
                 </span>
             </h1>
-            <p class="lead text-white-50 fs-4 max-w-3xl mx-auto mb-5">
+            <p class="lead text-white-100 fs-4 max-w-3xl mx-auto mb-5">
                 From expert mechanics to trusted home tutors or certified restauraunts. Chat directly, negotiate fairly, and track live on the map.
             </p>
             <div class="hero-actions d-flex flex-column flex-sm-row justify-content-center gap-4">
-                <a href="/account/register?role=User" target="_top" class="btn btn-gradient btn-lg rounded-pill px-5 py-3 shadow-lg hover-elevate">
+                <a href="/account/register?role=User" class="btn btn-gradient btn-lg rounded-pill px-5 py-3 shadow-lg hover-elevate">
                     <i class="bi bi-search me-2"></i> I need a service
                 </a>
-                <a href="/account/register?role=BusinessOwner" target="_top" class="btn btn-outline-light btn-lg rounded-pill px-5 py-3 shadow-lg hover-elevate glass-panel-hover">
+                <a href="/account/register?role=BusinessOwner" class="btn btn-outline-light btn-lg rounded-pill px-5 py-3 shadow-lg hover-elevate glass-panel-hover">
                     <i class="bi bi-shop me-2"></i> I own a business
                 </a>
             </div>
         </div>
     </section>
 
-    <section class="features container py-6 my-5">
+    <section class="features container pt-4 pb-5">
         @* Demo credentials removed *@
         <div class="row g-5">
             <div class="col-md-4">

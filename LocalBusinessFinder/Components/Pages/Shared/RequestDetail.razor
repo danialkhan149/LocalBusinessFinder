@@ -208,11 +208,12 @@ else
     private int _reviewRating = 5;
     private string _reviewComment = "";
     private LiveMap? _map;
-    private ElementReference _chatContainer;
+    //private ElementReference _chatContainer;
     private double _mapLat = 33.5984, _mapLng = 73.0441;
     private bool _trackingActive;
     private int? _watchId;
     private DotNetObjectReference<RequestDetail>? _dotNetRef;
+    private readonly System.Threading.SemaphoreSlim _dbLock = new System.Threading.SemaphoreSlim(1, 1);
 
     private bool CanChat => _request != null && _request.Status is not RequestStatus.Completed and not RequestStatus.Cancelled;
     private bool ShowDealActions => _isParticipant && _request!.Status is RequestStatus.Negotiating or RequestStatus.Accepted;
@@ -241,7 +242,15 @@ else
             return;
         }
 
-        if (_userId != null && !await RequestService.CanUserAccessAsync(RequestId, _userId, _isAdmin))
+        bool canAccess = true;
+        if (_userId != null)
+        {
+            await _dbLock.WaitAsync();
+            try { canAccess = await RequestService.CanUserAccessAsync(RequestId, _userId, _isAdmin); }
+            finally { _dbLock.Release(); }
+        }
+
+        if (!canAccess)
         {
             _accessDenied = true;
             _request = null;
@@ -287,7 +296,16 @@ else
 
     private async Task LoadRequestAsync()
     {
-        _request = await RequestService.GetByIdAsync(RequestId);
+        await _dbLock.WaitAsync();
+        try
+        {
+            _request = await RequestService.GetByIdAsync(RequestId);
+        }
+        finally
+        {
+            _dbLock.Release();
+        }
+
         if (_request != null)
         {
             var latestOffer = _request.Messages.OrderByDescending(m => m.SentAt).FirstOrDefault(m => m.IsOffer && m.OfferAmount.HasValue);
@@ -359,7 +377,10 @@ else
     private async Task AcceptChatOfferAsync(decimal amount)
     {
         _dealPrice = amount;
-        await RequestService.AcceptDealAsync(RequestId, amount, _visitType);
+        await _dbLock.WaitAsync();
+        try { await RequestService.AcceptDealAsync(RequestId, amount, _visitType); }
+        finally { _dbLock.Release(); }
+
         try
         {
             await JS.InvokeVoidAsync("lbfSignalR.sendChat", RequestId, $"System: Offer of Rs {amount:N0} accepted.", false, null);
@@ -374,15 +395,24 @@ else
 
     private async Task AcceptDealAsync()
     {
-        await RequestService.AcceptDealAsync(RequestId, _dealPrice, _visitType);
-        await RequestService.StartTripAsync(RequestId);
+        await _dbLock.WaitAsync();
+        try
+        {
+            await RequestService.AcceptDealAsync(RequestId, _dealPrice, _visitType);
+            await RequestService.StartTripAsync(RequestId);
+        }
+        finally { _dbLock.Release(); }
+
         await LoadRequestAsync();
         await SetupTrackingAsync();
     }
 
     private async Task StartTripAsync()
     {
-        await RequestService.StartTripAsync(RequestId);
+        await _dbLock.WaitAsync();
+        try { await RequestService.StartTripAsync(RequestId); }
+        finally { _dbLock.Release(); }
+
         await LoadRequestAsync();
         await SetupTrackingAsync();
     }
@@ -403,34 +433,50 @@ else
 
     private async Task CompleteTripAsync()
     {
-        await RequestService.CompleteAsync(RequestId);
+        await _dbLock.WaitAsync();
+        try { await RequestService.CompleteAsync(RequestId); }
+        finally { _dbLock.Release(); }
+
         await LoadRequestAsync();
         _trackingActive = false;
     }
 
     private async Task AcceptRequestAsync()
     {
-        await RequestService.UpdateStatusAsync(RequestId, RequestStatus.Accepted);
+        await _dbLock.WaitAsync();
+        try { await RequestService.UpdateStatusAsync(RequestId, RequestStatus.Accepted); }
+        finally { _dbLock.Release(); }
+
         await LoadRequestAsync();
     }
 
     private async Task CancelRequestAsync()
     {
-        await RequestService.CancelAsync(RequestId);
+        await _dbLock.WaitAsync();
+        try { await RequestService.CancelAsync(RequestId); }
+        finally { _dbLock.Release(); }
+
         Navigation.NavigateTo(_backUrl);
     }
 
     private async Task SubmitReviewAsync()
     {
         if (_request?.Business == null || _userId == null) return;
-        await RequestService.AddReviewAsync(new Review
+        
+        await _dbLock.WaitAsync();
+        try 
         {
-            BusinessId = _request.BusinessId,
-            ServiceRequestId = RequestId,
-            UserId = _userId,
-            Rating = _reviewRating,
-            Comment = _reviewComment
-        });
+            await RequestService.AddReviewAsync(new Review
+            {
+                BusinessId = _request.BusinessId,
+                ServiceRequestId = RequestId,
+                UserId = _userId,
+                Rating = _reviewRating,
+                Comment = _reviewComment
+            });
+        }
+        finally { _dbLock.Release(); }
+
         await LoadRequestAsync();
     }
 
@@ -444,5 +490,6 @@ else
         }
         catch { }
         _dotNetRef?.Dispose();
+        _dbLock.Dispose();
     }
 }

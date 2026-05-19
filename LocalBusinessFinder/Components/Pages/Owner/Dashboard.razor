@@ -146,7 +146,7 @@
         if (_business == null) return;
 
         var requests = await RequestService.GetForBusinessAsync(_business.Id);
-        _pendingCount = requests.Count(r => r.Status == RequestStatus.Pending);
+        _pendingCount = requests.Count(r => r.Status is RequestStatus.Pending or RequestStatus.Negotiating or RequestStatus.Accepted);
         _activeCount = requests.Count(r => r.Status is RequestStatus.InProgress or RequestStatus.DealAgreed);
         _completedCount = requests.Count(r => r.Status == RequestStatus.Completed);
     }

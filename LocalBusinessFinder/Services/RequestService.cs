@@ -30,6 +30,7 @@ public class RequestService(ApplicationDbContext db)
 
     public Task<List<ServiceRequest>> GetForUserAsync(string userId) =>
         db.ServiceRequests
+            .AsNoTracking()
             .Include(r => r.Business)
             .Where(r => r.UserId == userId)
             .OrderByDescending(r => r.CreatedAt)
@@ -37,6 +38,7 @@ public class RequestService(ApplicationDbContext db)
 
     public Task<List<ServiceRequest>> GetForBusinessAsync(int businessId) =>
         db.ServiceRequests
+            .AsNoTracking()
             .Include(r => r.User)
             .Where(r => r.BusinessId == businessId)
             .OrderByDescending(r => r.CreatedAt)
@@ -44,6 +46,7 @@ public class RequestService(ApplicationDbContext db)
 
     public Task<List<ServiceRequest>> GetAllAsync() =>
         db.ServiceRequests
+            .AsNoTracking()
             .Include(r => r.User)
             .Include(r => r.Business)
             .OrderByDescending(r => r.CreatedAt)
