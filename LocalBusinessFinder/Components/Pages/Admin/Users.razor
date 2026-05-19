@@ -1,0 +1,105 @@
+@page "/admin/users"
+@layout AdminLayout
+@attribute [Authorize(Roles = AppRoles.Admin)]
+@rendermode InteractiveServer
+@inject AdminService AdminService
+@inject UserManager<ApplicationUser> UserManager
+
+<PageTitle>Users - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">User Management</h1>
+            <p class="text-muted mb-0">Monitor and manage all user accounts in Pindi Ki Khoj</p>
+        </div>
+    </div>
+
+    <div class="premium-card p-4 border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr class="text-uppercase text-muted fs-xs" style="letter-spacing: 0.5px;">
+                        <th class="border-bottom py-3">User</th>
+                        <th class="border-bottom py-3">Roles</th>
+                        <th class="border-bottom py-3">Status</th>
+                        <th class="border-bottom py-3 text-end">Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var u in _users)
+                    {
+                        var roles = _userRoles.GetValueOrDefault(u.Id, []);
+                        <tr>
+                            <td class="py-3">
+                                <div class="d-flex align-items-center">
+                                    <div class="avatar bg-accent-soft text-accent rounded-circle d-flex align-items-center justify-content-center me-3" style="width: 42px; height: 42px; background: rgba(0, 200, 83, 0.1); font-weight: bold;">
+                                        @u.FullName.Substring(0, Math.Min(2, u.FullName.Length)).ToUpper()
+                                    </div>
+                                    <div>
+                                        <div class="fw-bold text-dark">@u.FullName</div>
+                                        <div class="text-muted fs-xs">@u.Email</div>
+                                    </div>
+                                </div>
+                            </td>
+                            <td class="py-3">
+                                @foreach (var r in roles)
+                                {
+                                    var badgeColor = r switch
+                                    {
+                                        AppRoles.Admin => "bg-danger",
+                                        AppRoles.BusinessOwner => "bg-warning text-dark",
+                                        _ => "bg-primary"
+                                    };
+                                    <span class="badge @badgeColor rounded-pill px-3 py-2 me-1 small">@r</span>
+                                }
+                            </td>
+                            <td class="py-3">
+                                @if (u.IsActive)
+                                {
+                                    <span class="badge rounded-pill bg-success-soft text-success px-3 py-2" style="background: rgba(25, 135, 84, 0.1);">Active</span>
+                                }
+                                else
+                                {
+                                    <span class="badge rounded-pill bg-secondary-soft text-secondary px-3 py-2" style="background: rgba(108, 117, 125, 0.1);">Disabled</span>
+                                }
+                            </td>
+                            <td class="py-3 text-end">
+                                @if (u.IsActive && !roles.Contains(AppRoles.Admin))
+                                {
+                                    <button class="btn btn-sm btn-outline-danger rounded-pill px-3 py-2 fw-semibold" @onclick="() => ToggleUser(u.Id, false)">
+                                        <i class="bi bi-x-circle me-1"></i> Disable
+                                    </button>
+                                }
+                                else if (!u.IsActive)
+                                {
+                                    <button class="btn btn-sm btn-outline-success rounded-pill px-3 py-2 fw-semibold" @onclick="() => ToggleUser(u.Id, true)">
+                                        <i class="bi bi-check-circle me-1"></i> Enable
+                                    </button>
+                                }
+                            </td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ApplicationUser> _users = [];
+    private Dictionary<string, IList<string>> _userRoles = new();
+
+    protected override async Task OnInitializedAsync()
+    {
+        _users = await AdminService.GetUsersAsync();
+        foreach (var u in _users)
+            _userRoles[u.Id] = await UserManager.GetRolesAsync(u);
+    }
+
+    private async Task ToggleUser(string id, bool active)
+    {
+        await AdminService.SetUserActiveAsync(id, active);
+        _users = await AdminService.GetUsersAsync();
+    }
+}

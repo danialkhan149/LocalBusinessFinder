@@ -1,0 +1,64 @@
+@page "/admin/requests"
+@layout AdminLayout
+@attribute [Authorize(Roles = AppRoles.Admin)]
+@rendermode InteractiveServer
+@inject RequestService RequestService
+
+<PageTitle>Service Requests - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">Service Requests</h1>
+            <p class="text-muted mb-0">Monitor and view all service engagements and historical trips across the system</p>
+        </div>
+    </div>
+
+    <div class="premium-card p-4 border-0 shadow-sm">
+        <div class="table-responsive">
+            <table class="table align-middle mb-0">
+                <thead>
+                    <tr class="text-uppercase text-muted fs-xs" style="letter-spacing: 0.5px;">
+                        <th class="border-bottom py-3">ID</th>
+                        <th class="border-bottom py-3">Customer</th>
+                        <th class="border-bottom py-3">Business</th>
+                        <th class="border-bottom py-3">Status</th>
+                        <th class="border-bottom py-3 text-end">Price</th>
+                        <th class="border-bottom py-3 text-end">Created At</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @foreach (var r in _requests)
+                    {
+                        var badgeColor = r.Status switch
+                        {
+                            RequestStatus.Pending => "bg-warning text-dark",
+                            RequestStatus.Accepted => "bg-primary",
+                            RequestStatus.DealAgreed => "bg-info text-white",
+                            RequestStatus.InProgress => "bg-secondary text-white",
+                            RequestStatus.Completed => "bg-success",
+                            _ => "bg-light text-muted"
+                        };
+                        <tr>
+                            <td class="py-3 fw-bold text-muted">#@r.Id</td>
+                            <td class="py-3 text-dark fw-semibold">@r.User?.FullName</td>
+                            <td class="py-3 text-dark fw-semibold">@r.Business?.Name</td>
+                            <td class="py-3"><span class="badge @badgeColor rounded-pill px-3 py-2 small">@r.Status</span></td>
+                            <td class="py-3 text-end fw-bold text-dark">@(r.AgreedPrice.HasValue ? $"Rs {r.AgreedPrice.Value:N0}" : "—")</td>
+                            <td class="py-3 text-end text-muted small">@r.CreatedAt.ToLocalTime().ToString("g")</td>
+                        </tr>
+                    }
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ServiceRequest> _requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        _requests = await RequestService.GetAllAsync();
+    }
+}

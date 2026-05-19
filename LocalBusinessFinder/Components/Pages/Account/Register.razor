@@ -1,0 +1,147 @@
+@page "/account/register"
+@using System.ComponentModel.DataAnnotations
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Create Account - Pindi Ki Khoj</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card glass-panel p-4 p-md-5 border-0 shadow-lg text-white" style="background: rgba(15, 23, 42, 0.75); max-width: 460px;">
+        <div class="text-center mb-4">
+            <h1 class="fw-bolder splash-title mb-2 text-accent" style="font-size: 2.2rem;">PINDI KI KHOJ</h1>
+            <p class="text-white-50">Create an account to discover nearby services or offer your own!</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger border-0 rounded-3 shadow-sm bg-danger text-white mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @_error
+            </div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="HandleRegister" FormName="register">
+            <DataAnnotationsValidator />
+            
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">Full Name</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-person"></i></span>
+                    <InputText @bind-Value="_model.FullName" class="form-control modern-input border-0 text-white" style="background: rgba(255,255,255,0.08);" placeholder="John Doe" />
+                </div>
+                <ValidationMessage For="() => _model.FullName" class="text-warning small mt-1" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">Email Address</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-envelope"></i></span>
+                    <InputText @bind-Value="_model.Email" class="form-control modern-input border-0 text-white" style="background: rgba(255,255,255,0.08);" placeholder="you@email.com" />
+                </div>
+                <ValidationMessage For="() => _model.Email" class="text-warning small mt-1" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-lock"></i></span>
+                    <InputText type="password" id="regPassword" @bind-Value="_model.Password" class="form-control modern-input border-0 text-white" style="background: rgba(255,255,255,0.08);" placeholder="••••••••" />
+                    <button type="button" class="btn btn-outline-light border-0 bg-white bg-opacity-10 text-white-50" onclick="window.pindi.togglePasswordVisibility('regPassword', 'regEyeIcon')">
+                        <i class="bi bi-eye" id="regEyeIcon"></i>
+                    </button>
+                </div>
+                <small class="text-white-50 fs-xs d-block mt-1">Min 6 chars, upper, lower, digit</small>
+                <ValidationMessage For="() => _model.Password" class="text-warning small mt-1" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">I am a...</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-briefcase"></i></span>
+                    <InputSelect @bind-Value="_model.Role" class="form-select modern-input border-0 text-white" style="background: rgba(255,255,255,0.08); color-scheme: dark;">
+                        <option value="@AppRoles.User" style="background: #1e293b; color: white;">Customer — I need services</option>
+                        <option value="@AppRoles.BusinessOwner" style="background: #1e293b; color: white;">Business owner — I offer services</option>
+                    </InputSelect>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-gradient w-100 py-3 fs-5 rounded-pill shadow" disabled="@_loading">
+                @(_loading ? "Creating..." : "Register")
+            </button>
+        </EditForm>
+
+        <p class="mt-4 text-center text-white-50 mb-0">
+            Already have an account? <a href="/account/login" target="_top" class="text-accent fw-bold text-decoration-none">Sign In</a>
+        </p>
+        <p class="text-center mt-3 mb-0">
+            <a href="/" target="_top" class="text-white-50 small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to home</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? Role { get; set; }
+
+    [SupplyParameterFromForm]
+    private RegisterModel _model { get; set; } = new();
+
+    private string? _error;
+    private bool _loading;
+
+    protected override void OnInitialized()
+    {
+        if (!string.IsNullOrEmpty(Role) && Role is AppRoles.User or AppRoles.BusinessOwner)
+            _model.Role = Role;
+    }
+
+    private async Task HandleRegister()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var user = new ApplicationUser
+            {
+                UserName = _model.Email,
+                Email = _model.Email,
+                FullName = _model.FullName,
+                EmailConfirmed = true
+            };
+
+            var result = await UserManager.CreateAsync(user, _model.Password);
+            if (!result.Succeeded)
+            {
+                _error = string.Join(" ", result.Errors.Select(e => e.Description));
+                return;
+            }
+
+            await UserManager.AddToRoleAsync(user, _model.Role);
+            await SignInManager.SignInAsync(user, isPersistent: false);
+
+            var dest = _model.Role switch
+            {
+                AppRoles.BusinessOwner => "/owner/register",
+                _ => "/user"
+            };
+            Navigation.NavigateTo(dest, forceLoad: true);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class RegisterModel
+    {
+        [Required, StringLength(100)]
+        public string FullName { get; set; } = "";
+
+        [Required, EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required, MinLength(6)]
+        public string Password { get; set; } = "";
+
+        public string Role { get; set; } = AppRoles.User;
+    }
+}

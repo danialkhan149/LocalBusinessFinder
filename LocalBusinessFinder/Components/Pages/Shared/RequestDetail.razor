@@ -1,0 +1,448 @@
+@page "/request/{RequestId:int}"
+@attribute [Authorize]
+@rendermode InteractiveServer
+@inject RequestService RequestService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<PageTitle>Request #@RequestId</PageTitle>
+
+@if (_accessDenied)
+{
+    <div class="alert alert-danger m-4 shadow-sm rounded-4"><i class="bi bi-exclamation-octagon"></i> You do not have access to this request.</div>
+}
+else if (_request == null)
+{
+    <div class="d-flex justify-content-center m-5">
+        <div class="spinner-border text-accent" role="status"></div>
+    </div>
+}
+else
+{
+    <div class="request-header-premium mb-4">
+        <div class="d-flex justify-content-between align-items-center mb-2">
+            <a href="@_backUrl" class="btn btn-sm btn-light rounded-pill px-3 shadow-sm"><i class="bi bi-arrow-left"></i> Back</a>
+            <div>
+                <span class="badge @StatusBadgeClass rounded-pill px-3 py-2 shadow-sm fs-6">@_request.Status</span>
+                <span class="badge bg-success rounded-pill px-3 py-2 ms-2 shadow-sm fs-6">
+                    <i class="bi bi-cash"></i> Rs @(_request.Business?.HourlyRate.ToString("N0") ?? "0")
+                    @if (_request.AgreedPrice.HasValue)
+                    {
+                        <span> (negotiated to Rs @_request.AgreedPrice.Value.ToString("N0"))</span>
+                    }
+                </span>
+            </div>
+        </div>
+        <h2 class="fw-bold mb-1 text-white">@_request.Title</h2>
+        <p class="mb-0 text-white-50 fs-5">
+            <i class="bi bi-shop"></i> @_request.Business?.Name <i class="bi bi-arrow-left-right mx-2"></i> <i class="bi bi-person"></i> @_request.User?.FullName
+        </p>
+        <p class="text-white-50 mt-1 small">
+            <i class="bi bi-geo-alt"></i> @(_request.VisitType == VisitType.UserGoesToBusiness ? "You go to business" : "Business comes to you")
+        </p>
+    </div>
+
+    <div class="row g-4">
+        <div class="col-lg-5">
+            <div class="card premium-card chat-panel h-100 d-flex flex-column">
+                <div class="card-header bg-white border-bottom-0 pt-4 pb-2">
+                    <h5 class="fw-bold mb-0"><i class="bi bi-chat-dots-fill text-accent me-2"></i> Chat & Offers</h5>
+                </div>
+                <div class="chat-messages flex-grow-1 p-3" id="chatContainer">
+                    @foreach (var m in _request.Messages.OrderBy(x => x.SentAt))
+                    {
+                        var mine = m.SenderId == _userId;
+                        <div class="chat-bubble-wrapper @(mine ? "mine" : "theirs")">
+                            <div class="chat-bubble @(mine ? "mine" : "theirs") shadow-sm">
+                                <small class="sender">@(mine ? "You" : m.Sender?.FullName)</small>
+                                <div class="message-content">@m.Content</div>
+                                @if (m.IsOffer && m.OfferAmount.HasValue)
+                                {
+                                    <div class="offer-tag mt-2 d-flex justify-content-between align-items-center gap-2">
+                                        <span><i class="bi bi-tag-fill"></i> Offer: Rs @m.OfferAmount.Value.ToString("N0")</span>
+                                        @if (!mine && _request.Status is RequestStatus.Pending or RequestStatus.Negotiating or RequestStatus.Accepted)
+                                        {
+                                            <button class="btn btn-xs btn-success py-1 px-2 rounded-pill fw-bold text-white" style="font-size: 0.75rem; border: none; box-shadow: 0 1px 3px rgba(0,0,0,0.2);" @onclick="() => AcceptChatOfferAsync(m.OfferAmount.Value)">
+                                                Accept Offer
+                                            </button>
+                                        }
+                                    </div>
+                                }
+                                <small class="time text-end d-block mt-1">@m.SentAt.ToLocalTime().ToString("t")</small>
+                            </div>
+                        </div>
+                    }
+                    @if (!_request.Messages.Any())
+                    {
+                        <div class="text-center text-muted mt-5">
+                            <i class="bi bi-chat-square-text fs-1 opacity-50"></i>
+                            <p class="mt-2">No messages yet. Say hello!</p>
+                        </div>
+                    }
+                </div>
+                @if (CanChat)
+                {
+                    <div class="card-footer bg-white border-top-0 pb-4 pt-2">
+                        <div class="input-group mb-3 shadow-sm rounded-pill overflow-hidden">
+                            <input class="form-control border-0 px-4" @bind="_messageText" @bind:event="oninput" placeholder="Type a message..." @onkeydown="OnChatKey" />
+                            <button class="btn btn-accent px-4 fw-bold" @onclick="SendMessageAsync"><i class="bi bi-send-fill"></i></button>
+                        </div>
+                        <div class="input-group shadow-sm rounded-pill overflow-hidden">
+                            <span class="input-group-text bg-light border-0"><i class="bi bi-currency-dollar"></i></span>
+                            <input type="number" class="form-control border-0" @bind="_offerAmount" placeholder="Offer amount" />
+                            <button class="btn btn-warning px-4 fw-bold text-dark" @onclick="SendOfferAsync">Offer</button>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+
+        <div class="col-lg-7">
+            <div class="d-flex flex-column gap-4 h-100">
+                <div class="card premium-card flex-grow-1 overflow-hidden">
+                    <div class="card-header bg-white border-bottom-0 pt-4 pb-2 d-flex justify-content-between align-items-center">
+                        <h5 class="fw-bold mb-0"><i class="bi bi-map-fill text-success me-2"></i> Live Map</h5>
+                        @if (_trackingActive) { <span class="badge bg-danger pulse rounded-pill px-3 py-2">LIVE TRACKING</span> }
+                    </div>
+                    <div class="card-body p-0 position-relative">
+                        <LiveMap @ref="_map" CenterLat="_mapLat" CenterLng="_mapLng" Height="500" />
+                    </div>
+                </div>
+
+                @if (ShowDealActions)
+                {
+                    <div class="card premium-card border-success border-2">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold text-success mb-3"><i class="bi bi-handshake"></i> Finalize Deal</h5>
+                            <div class="row g-2">
+                                <div class="col-md-6">
+                                    <select class="form-select bg-light border-0" @bind="_visitType">
+                                        <option value="@VisitType.UserGoesToBusiness">I go to the business</option>
+                                        <option value="@VisitType.BusinessComesToUser">Business comes to me</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-6">
+                                    <input type="number" class="form-control bg-light border-0" @bind="_dealPrice" placeholder="Final price (Rs)" />
+                                </div>
+                            </div>
+                            <button class="btn btn-success w-100 fw-bold mt-3 py-2 shadow-sm" @onclick="AcceptDealAsync">Accept Deal & Start Job</button>
+                        </div>
+                    </div>
+                }
+
+                @if (_request.Status == RequestStatus.DealAgreed || _request.Status == RequestStatus.InProgress)
+                {
+                    <div class="card premium-card bg-primary text-white">
+                        <div class="card-body p-4 text-center">
+                            @if (_request.Status == RequestStatus.DealAgreed)
+                            {
+                                <h5 class="fw-bold mb-3">Ready to begin?</h5>
+                                <button class="btn btn-light text-primary fw-bold w-100 py-2 shadow-sm rounded-pill" @onclick="StartTripAsync"><i class="bi bi-play-circle-fill"></i> Start Live Tracking</button>
+                            }
+                            @if (_request.Status == RequestStatus.InProgress && _isParticipant)
+                            {
+                                <div class="mb-3">
+                                    <div class="spinner-grow spinner-grow-sm text-light me-2" role="status"></div>
+                                    <span class="fw-bold">Job in progress. Sharing live location...</span>
+                                </div>
+                                <button class="btn btn-success fw-bold w-100 py-2 shadow-sm rounded-pill border-white" @onclick="CompleteTripAsync"><i class="bi bi-check-circle-fill"></i> Mark as Completed</button>
+                            }
+                        </div>
+                    </div>
+                }
+
+                @if (_request.Status == RequestStatus.Completed && _isUser && _request.Review == null)
+                {
+                    <div class="card premium-card">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold mb-3"><i class="bi bi-star-fill text-warning"></i> Rate your experience</h5>
+                            <select class="form-select mb-3 bg-light border-0" @bind="_reviewRating">
+                                @for (var i = 5; i >= 1; i--) { <option value="@i">@i Stars - @(i == 5 ? "Excellent" : i == 1 ? "Poor" : "Good")</option> }
+                            </select>
+                            <textarea class="form-control mb-3 bg-light border-0" @bind="_reviewComment" rows="3" placeholder="Tell us how it went..."></textarea>
+                            <button class="btn btn-warning w-100 fw-bold py-2 shadow-sm" @onclick="SubmitReviewAsync">Submit Review</button>
+                        </div>
+                    </div>
+                }
+
+                @if (ShowOwnerActions && _request.Status == RequestStatus.Pending)
+                {
+                    <div class="card premium-card border-accent border-2">
+                        <div class="card-body p-4">
+                            <h5 class="fw-bold mb-3 text-center">New Request Received</h5>
+                            <div class="d-flex gap-3">
+                                <button class="btn btn-accent flex-fill fw-bold py-2 shadow-sm" @onclick="AcceptRequestAsync"><i class="bi bi-check-lg"></i> Accept</button>
+                                <button class="btn btn-outline-danger flex-fill fw-bold py-2" @onclick="CancelRequestAsync"><i class="bi bi-x-lg"></i> Decline</button>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        window.scrollToChatBottom = () => {
+            setTimeout(() => {
+                const chat = document.getElementById('chatContainer');
+                if (chat) chat.scrollTop = chat.scrollHeight;
+            }, 100);
+        };
+    </script>
+}
+
+@code {
+    [Parameter] public int RequestId { get; set; }
+
+    private ServiceRequest? _request;
+    private string? _userId;
+    private bool _isUser, _isBusinessOwner, _isParticipant, _isAdmin, _accessDenied;
+    private bool _hubsInitialized, _mapMarkersSet;
+    private string _backUrl = "/";
+    private string _messageText = "";
+    private decimal _offerAmount = 500;
+    private decimal _dealPrice = 500;
+    private VisitType _visitType = VisitType.BusinessComesToUser;
+    private int _reviewRating = 5;
+    private string _reviewComment = "";
+    private LiveMap? _map;
+    private ElementReference _chatContainer;
+    private double _mapLat = 33.5984, _mapLng = 73.0441;
+    private bool _trackingActive;
+    private int? _watchId;
+    private DotNetObjectReference<RequestDetail>? _dotNetRef;
+
+    private bool CanChat => _request != null && _request.Status is not RequestStatus.Completed and not RequestStatus.Cancelled;
+    private bool ShowDealActions => _isParticipant && _request!.Status is RequestStatus.Negotiating or RequestStatus.Accepted;
+    private bool ShowOwnerActions => _isBusinessOwner && _request!.Status == RequestStatus.Pending;
+    private string StatusBadgeClass => _request?.Status switch
+    {
+        RequestStatus.Completed => "bg-success",
+        RequestStatus.Cancelled => "bg-danger",
+        RequestStatus.InProgress => "bg-info",
+        RequestStatus.DealAgreed => "bg-primary",
+        _ => "bg-secondary"
+    };
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        _userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        _isAdmin = state.User.IsInRole(AppRoles.Admin);
+        _isUser = state.User.IsInRole(AppRoles.User);
+
+        await LoadRequestAsync();
+
+        if (_request == null)
+        {
+            _accessDenied = true;
+            return;
+        }
+
+        if (_userId != null && !await RequestService.CanUserAccessAsync(RequestId, _userId, _isAdmin))
+        {
+            _accessDenied = true;
+            _request = null;
+            return;
+        }
+
+        _mapLat = _request.UserLatitude;
+        _mapLng = _request.UserLongitude;
+        _isBusinessOwner = _userId == _request.Business?.OwnerId;
+        _isParticipant = _userId == _request.UserId || _isBusinessOwner;
+        _backUrl = _isAdmin ? "/admin/requests" : _isBusinessOwner ? "/owner/requests" : "/user/requests";
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (_request == null || _accessDenied) return;
+
+        try
+        {
+            if (_map != null && !_mapMarkersSet)
+            {
+                await _map.UpdateMarkerAsync("user", _request.UserLatitude, _request.UserLongitude, "Customer", "#0d6efd");
+                if (_request.Business != null)
+                    await _map.UpdateMarkerAsync("business", _request.Business.Latitude, _request.Business.Longitude, _request.Business.Name, "#198754");
+                _mapMarkersSet = true;
+            }
+
+            if (!_hubsInitialized)
+            {
+                _dotNetRef = DotNetObjectReference.Create(this);
+                await JS.InvokeVoidAsync("lbfSignalR.connectChat", RequestId, _dotNetRef);
+                _hubsInitialized = true;
+
+                if (_request.Status is RequestStatus.InProgress or RequestStatus.DealAgreed)
+                    await SetupTrackingAsync();
+            }
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"Error during JS initialization: {ex.Message}");
+        }
+    }
+
+    private async Task LoadRequestAsync()
+    {
+        _request = await RequestService.GetByIdAsync(RequestId);
+        if (_request != null)
+        {
+            var latestOffer = _request.Messages.OrderByDescending(m => m.SentAt).FirstOrDefault(m => m.IsOffer && m.OfferAmount.HasValue);
+            _dealPrice = _request.AgreedPrice ?? latestOffer?.OfferAmount ?? _request.Business?.HourlyRate ?? 500;
+            _offerAmount = _request.Business?.HourlyRate ?? 500;
+        }
+    }
+
+    [JSInvokable]
+    public async Task OnChatMessage(object msg)
+    {
+        await LoadRequestAsync();
+        StateHasChanged();
+        try { await JS.InvokeVoidAsync("scrollToChatBottom"); } catch { }
+    }
+
+    [JSInvokable]
+    public async Task OnLocationUpdate(object loc)
+    {
+        var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
+            System.Text.Json.JsonSerializer.Serialize(loc));
+        if (dict == null) return;
+
+        var lat = dict["latitude"].GetDouble();
+        var lng = dict["longitude"].GetDouble();
+        var uid = dict["userId"].GetString();
+
+        if (_map == null || _request == null) return;
+
+        var isBiz = uid == _request.Business?.OwnerId;
+        await _map.UpdateMarkerAsync(isBiz ? "business-live" : "user-live", lat, lng,
+            isBiz ? _request.Business!.Name : "Customer",
+            isBiz ? "#fd7e14" : "#0d6efd");
+    }
+
+    [JSInvokable]
+    public async Task OnGpsUpdate(double lat, double lng)
+    {
+        await JS.InvokeVoidAsync("lbfSignalR.sendLocation", RequestId, lat, lng);
+    }
+
+    private async Task SendMessageAsync()
+    {
+        if (string.IsNullOrWhiteSpace(_messageText)) return;
+        try 
+        { 
+            await JS.InvokeVoidAsync("lbfSignalR.sendChat", RequestId, _messageText, false, null); 
+            _messageText = "";
+            try { await JS.InvokeVoidAsync("scrollToChatBottom"); } catch { }
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+    }
+
+    private async Task SendOfferAsync()
+    {
+        try 
+        {
+            await JS.InvokeVoidAsync("lbfSignalR.sendChat", RequestId, $"I offer Rs {_offerAmount:N0}", true, _offerAmount);
+            try { await JS.InvokeVoidAsync("scrollToChatBottom"); } catch { }
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+    }
+
+    private async Task OnChatKey(KeyboardEventArgs e)
+    {
+        if (e.Key == "Enter") await SendMessageAsync();
+    }
+
+    private async Task AcceptChatOfferAsync(decimal amount)
+    {
+        _dealPrice = amount;
+        await RequestService.AcceptDealAsync(RequestId, amount, _visitType);
+        try
+        {
+            await JS.InvokeVoidAsync("lbfSignalR.sendChat", RequestId, $"System: Offer of Rs {amount:N0} accepted.", false, null);
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine(ex.Message);
+        }
+        await LoadRequestAsync();
+        StateHasChanged();
+    }
+
+    private async Task AcceptDealAsync()
+    {
+        await RequestService.AcceptDealAsync(RequestId, _dealPrice, _visitType);
+        await RequestService.StartTripAsync(RequestId);
+        await LoadRequestAsync();
+        await SetupTrackingAsync();
+    }
+
+    private async Task StartTripAsync()
+    {
+        await RequestService.StartTripAsync(RequestId);
+        await LoadRequestAsync();
+        await SetupTrackingAsync();
+    }
+
+    private async Task SetupTrackingAsync()
+    {
+        if (_request?.Status != RequestStatus.InProgress && _request?.Status != RequestStatus.DealAgreed) return;
+        _trackingActive = true;
+        _dotNetRef ??= DotNetObjectReference.Create(this);
+        try 
+        {
+            await JS.InvokeVoidAsync("lbfSignalR.connectTracking", RequestId, _dotNetRef);
+            if (_isParticipant)
+                _watchId = await JS.InvokeAsync<int?>("lbfSignalR.watchPosition", _dotNetRef);
+        }
+        catch (Exception ex) { Console.WriteLine(ex.Message); }
+    }
+
+    private async Task CompleteTripAsync()
+    {
+        await RequestService.CompleteAsync(RequestId);
+        await LoadRequestAsync();
+        _trackingActive = false;
+    }
+
+    private async Task AcceptRequestAsync()
+    {
+        await RequestService.UpdateStatusAsync(RequestId, RequestStatus.Accepted);
+        await LoadRequestAsync();
+    }
+
+    private async Task CancelRequestAsync()
+    {
+        await RequestService.CancelAsync(RequestId);
+        Navigation.NavigateTo(_backUrl);
+    }
+
+    private async Task SubmitReviewAsync()
+    {
+        if (_request?.Business == null || _userId == null) return;
+        await RequestService.AddReviewAsync(new Review
+        {
+            BusinessId = _request.BusinessId,
+            ServiceRequestId = RequestId,
+            UserId = _userId,
+            Rating = _reviewRating,
+            Comment = _reviewComment
+        });
+        await LoadRequestAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        try
+        {
+            if (_watchId.HasValue)
+                await JS.InvokeVoidAsync("lbfSignalR.clearWatch", _watchId);
+            await JS.InvokeVoidAsync("lbfSignalR.disconnectAll");
+        }
+        catch { }
+        _dotNetRef?.Dispose();
+    }
+}

@@ -1,0 +1,142 @@
+@page "/user/request/{BusinessId:int}"
+@layout UserLayout
+@attribute [Authorize(Roles = AppRoles.User)]
+@rendermode InteractiveServer
+@inject BusinessService BusinessService
+@inject RequestService RequestService
+@inject UserManager<ApplicationUser> UserManager
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>Request Service - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    @if (_business == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-accent" role="status"></div>
+            <p class="text-muted mt-3">Loading professional details...</p>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="fw-bold mb-1 text-dark">Request Service</h1>
+                <p class="text-muted mb-0">Describe your task and send a request directly to the professional</p>
+            </div>
+        </div>
+
+        <div class="premium-card p-4 p-md-5 border-0 shadow-sm bg-white" style="max-width: 680px;">
+            <div class="d-flex align-items-center mb-4 bg-light p-3 rounded-4">
+                <div class="icon-box rounded-circle bg-accent-soft text-accent d-flex align-items-center justify-content-center me-3" style="width: 50px; height: 50px; background: rgba(0, 200, 83, 0.1);">
+                    <i class="bi bi-person-fill fs-3"></i>
+                </div>
+                <div>
+                    <h4 class="fw-bold mb-0 text-dark">@_business.Name</h4>
+                    <span class="badge bg-white text-dark border px-2 py-1 small mt-1">@_business.Category?.Name · @_business.Address</span>
+                </div>
+                <div class="ms-auto text-end">
+                    <span class="text-warning"><i class="bi bi-star-fill me-1"></i><strong>@_business.Rating</strong></span>
+                    <div class="text-muted small">Rs @_business.HourlyRate/hr</div>
+                </div>
+            </div>
+
+            <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Request Title</label>
+                    <InputText @bind-Value="_model.Title" class="form-control modern-input" placeholder="e.g. Need immediate AC servicing" />
+                    <ValidationMessage For="() => _model.Title" class="text-danger small mt-1" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Describe Your Need</label>
+                    <InputTextArea @bind-Value="_model.Description" class="form-control modern-input" rows="4" placeholder="Explain the work you need done in detail. The more details you share, the better offers you can negotiate!" />
+                    <ValidationMessage For="() => _model.Description" class="text-danger small mt-1" />
+                </div>
+
+                <div class="mb-4">
+                    <label class="form-label fw-bold text-dark">Your Home / Site Address</label>
+                    <InputText @bind-Value="_model.UserAddress" class="form-control modern-input" placeholder="e.g. House #12, St #3, Westridge, Rawalpindi" />
+                    <ValidationMessage For="() => _model.UserAddress" class="text-danger small mt-1" />
+                </div>
+
+                <div class="alert alert-info border-0 rounded-4 shadow-sm bg-info bg-opacity-10 text-dark mt-4 d-flex align-items-center">
+                    <i class="bi bi-geo-alt-fill fs-3 text-info me-3"></i>
+                    <span class="small text-muted">Your current GPS location will be captured automatically to show your request on the map for the service provider.</span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    <a href="/user" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                    <button type="submit" class="btn btn-gradient px-5 py-2 rounded-pill shadow" disabled="@_submitting">
+                        @(_submitting ? "Sending..." : "Send Service Request")
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    [Parameter] public int BusinessId { get; set; }
+
+    private Business? _business;
+    private RequestForm _model = new();
+    private bool _submitting;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _business = await BusinessService.GetByIdAsync(BusinessId);
+        if (_business == null) return;
+
+        _model.Title = $"Service at {_business.Name}";
+        try
+        {
+            var pos = await JS.InvokeAsync<GeoPos>("lbfSignalR.getCurrentPosition");
+            _model.UserLatitude = pos.Lat;
+            _model.UserLongitude = pos.Lng;
+        }
+        catch
+        {
+            _model.UserLatitude = 33.5984;
+            _model.UserLongitude = 73.0441;
+        }
+    }
+
+    private async Task SubmitAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null || _business == null) return;
+
+        _submitting = true;
+        var request = new ServiceRequest
+        {
+            UserId = userId,
+            BusinessId = _business.Id,
+            Title = _model.Title,
+            Description = _model.Description,
+            UserAddress = _model.UserAddress,
+            UserLatitude = _model.UserLatitude,
+            UserLongitude = _model.UserLongitude,
+            Status = RequestStatus.Pending
+        };
+        var created = await RequestService.CreateAsync(request);
+        Navigation.NavigateTo($"/request/{created.Id}");
+    }
+
+    private class RequestForm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Title { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string UserAddress { get; set; } = "";
+        public double UserLatitude { get; set; }
+        public double UserLongitude { get; set; }
+    }
+
+    private class GeoPos { public double Lat { get; set; } public double Lng { get; set; } }
+}

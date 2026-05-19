@@ -1,0 +1,287 @@
+@page "/owner/register"
+@layout OwnerLayout
+@attribute [Authorize(Roles = AppRoles.BusinessOwner)]
+@rendermode InteractiveServer
+@inject BusinessService BusinessService
+@inject AuthenticationStateProvider AuthState
+@inject NavigationManager Navigation
+@inject IJSRuntime JS
+
+<PageTitle>My Business - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    @if (_existing != null && !_isEditing)
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="fw-bold mb-1 text-dark">My Business Profile</h1>
+                <p class="text-muted mb-0">View your current business registration details</p>
+            </div>
+        </div>
+
+        <div class="premium-card p-5 border-0 shadow-sm bg-white" style="max-width: 600px;">
+            <div class="d-flex align-items-center mb-4">
+                <div class="icon-box rounded-circle bg-accent-soft text-accent d-flex align-items-center justify-content-center me-3" style="width: 60px; height: 60px; background: rgba(0, 200, 83, 0.1);">
+                    <i class="bi bi-shop fs-2"></i>
+                </div>
+                <div>
+                    <h3 class="fw-bold mb-0 text-dark">@_existing.Name</h3>
+                    <span class="badge rounded-pill bg-light text-dark px-3 py-2 border mt-1">@_existing.Category?.Name</span>
+                </div>
+            </div>
+
+            <p class="text-muted mb-4 fs-6" style="line-height: 1.6;">@_existing.Description</p>
+            
+            <div class="row g-3 mb-4">
+                <div class="col-sm-6">
+                    <div class="p-3 bg-light rounded-3">
+                        <div class="text-muted fs-xs text-uppercase fw-bold mb-1"><i class="bi bi-geo-alt-fill text-danger me-1"></i> Address</div>
+                        <div class="fw-semibold text-dark text-truncate">@_existing.Address</div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="p-3 bg-light rounded-3">
+                        <div class="text-muted fs-xs text-uppercase fw-bold mb-1"><i class="bi bi-telephone-fill text-primary me-1"></i> Phone</div>
+                        <div class="fw-semibold text-dark">@_existing.Phone</div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="p-3 bg-light rounded-3">
+                        <div class="text-muted fs-xs text-uppercase fw-bold mb-1"><i class="bi bi-cash-stack text-success me-1"></i> Hourly Rate</div>
+                        <div class="fw-semibold text-dark">Rs @_existing.HourlyRate.ToString("N0") / hr</div>
+                    </div>
+                </div>
+                <div class="col-sm-6">
+                    <div class="p-3 bg-light rounded-3">
+                        <div class="text-muted fs-xs text-uppercase fw-bold mb-1"><i class="bi bi-shield-check text-warning me-1"></i> Verification Status</div>
+                        @if (_existing.IsApproved)
+                        {
+                            <span class="badge rounded-pill bg-success-soft text-success px-3 py-2" style="background: rgba(25, 135, 84, 0.1);"><i class="bi bi-patch-check-fill me-1"></i> Verified Partner</span>
+                        }
+                        else
+                        {
+                            <span class="badge rounded-pill bg-warning-soft text-warning px-3 py-2" style="background: rgba(253, 126, 20, 0.1);"><i class="bi bi-clock me-1"></i> Verification Pending</span>
+                        }
+                    </div>
+                </div>
+            </div>
+
+            <div class="d-flex justify-content-start gap-2">
+                <a href="/owner" class="btn btn-outline-secondary px-4 py-2 rounded-pill">
+                    <i class="bi bi-arrow-left me-1"></i> Back to Dashboard
+                </a>
+                <button class="btn btn-gradient px-4 py-2 rounded-pill shadow" @onclick="StartEditing">
+                    <i class="bi bi-pencil-square me-1"></i> Edit Business Details
+                </button>
+            </div>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <div>
+                <h1 class="fw-bold mb-1 text-dark">@(_existing != null ? "Edit Business Profile" : "Register Your Business")</h1>
+                <p class="text-muted mb-0">@(_existing != null ? "Update your business information below" : "Fill out the details below to join Pindi Ki Khoj as a verified partner")</p>
+            </div>
+        </div>
+
+        <div class="premium-card p-4 p-md-5 border-0 shadow-sm bg-white" style="max-width: 720px;">
+            <EditForm Model="_model" OnValidSubmit="SubmitAsync">
+                <DataAnnotationsValidator />
+                
+                <div class="row g-4">
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Business Name</label>
+                            <InputText @bind-Value="_model.Name" class="form-control modern-input" placeholder="e.g. Rawalpindi Auto Works" />
+                            <ValidationMessage For="() => _model.Name" class="text-danger small mt-1" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Service Category</label>
+                            <InputSelect @bind-Value="_model.CategoryId" class="form-select modern-input">
+                                @foreach (var c in _categories)
+                                {
+                                    <option value="@c.Id">@c.Name</option>
+                                }
+                            </InputSelect>
+                        </div>
+                    </div>
+
+                    <div class="col-12">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Description</label>
+                            <InputTextArea @bind-Value="_model.Description" class="form-control modern-input" rows="3" placeholder="Tell customers about your expertise, experience, and services..." />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Shop / Office Address</label>
+                            <InputText @bind-Value="_model.Address" class="form-control modern-input" placeholder="e.g. Shop #4, Saddar, Rawalpindi" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Contact Phone Number</label>
+                            <InputText @bind-Value="_model.Phone" class="form-control modern-input" placeholder="e.g. 0300-1234567" />
+                        </div>
+                    </div>
+
+                    <div class="col-md-6">
+                        <div class="form-group">
+                            <label class="form-label fw-bold text-dark">Hourly Base Rate (Rs)</label>
+                            <InputNumber @bind-Value="_model.HourlyRate" class="form-control modern-input" />
+                        </div>
+                    </div>
+                </div>
+
+                <div class="alert alert-info border-0 rounded-4 shadow-sm bg-info bg-opacity-10 text-dark mt-4 d-flex align-items-center">
+                    <i class="bi bi-geo-alt-fill fs-3 text-info me-3"></i>
+                    <span class="small text-muted">Your GPS coordinates will be captured automatically from your browser location to place your business accurately on the Pindi Ki Khoj Live Map.</span>
+                </div>
+
+                <div class="d-flex justify-content-end gap-2 mt-4">
+                    @if (_existing != null)
+                    {
+                        <button type="button" class="btn btn-outline-secondary rounded-pill px-4" @onclick="CancelEditing">Cancel</button>
+                    }
+                    else
+                    {
+                        <a href="/owner" class="btn btn-outline-secondary rounded-pill px-4">Cancel</a>
+                    }
+                    <button type="submit" class="btn btn-gradient px-4 py-2 rounded-pill shadow" disabled="@_submitting">
+                        @(_submitting ? "Submitting..." : (_existing != null ? "Save Changes" : "Submit Registration"))
+                    </button>
+                </div>
+            </EditForm>
+        </div>
+    }
+</div>
+
+@code {
+    private Business? _existing;
+    private List<ServiceCategory> _categories = [];
+    private BusinessForm _model = new() { CategoryId = 1, HourlyRate = 1500 };
+    private bool _submitting;
+    private bool _isEditing;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await BusinessService.GetCategoriesAsync();
+        if (_categories.Any())
+            _model.CategoryId = _categories[0].Id;
+
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId != null)
+            _existing = await BusinessService.GetByOwnerIdAsync(userId);
+
+        try
+        {
+            var pos = await JS.InvokeAsync<GeoPos>("lbfSignalR.getCurrentPosition");
+            _model.Latitude = pos.Lat;
+            _model.Longitude = pos.Lng;
+        }
+        catch
+        {
+            _model.Latitude = 33.5984;
+            _model.Longitude = 73.0441;
+        }
+    }
+
+    private void StartEditing()
+    {
+        if (_existing == null) return;
+        _model.Name = _existing.Name;
+        _model.Description = _existing.Description ?? "";
+        _model.Address = _existing.Address ?? "";
+        _model.Phone = _existing.Phone ?? "";
+        _model.CategoryId = _existing.CategoryId;
+        _model.HourlyRate = _existing.HourlyRate;
+        _model.Latitude = _existing.Latitude;
+        _model.Longitude = _existing.Longitude;
+        _isEditing = true;
+    }
+
+    private void CancelEditing()
+    {
+        _isEditing = false;
+    }
+
+    private async Task SubmitAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return;
+
+        _submitting = true;
+
+        var addr = _model.Address?.ToLower() ?? "";
+        bool isPindiOrIsb = addr.Contains("rawalpindi") || addr.Contains("pindi") || addr.Contains("islamabad") || addr.Contains("isb");
+        bool coordsInPindiOrIsb = _model.Latitude >= 33.3 && _model.Latitude <= 33.9 && _model.Longitude >= 72.7 && _model.Longitude <= 73.4;
+
+        if (!isPindiOrIsb && !coordsInPindiOrIsb)
+        {
+            await JS.InvokeVoidAsync("alert", "Only Islamabad and Rawalpindi based businesses can be registered!");
+            _submitting = false;
+            return;
+        }
+
+        if (_existing != null)
+        {
+            _existing.CategoryId = _model.CategoryId;
+            _existing.Name = _model.Name;
+            _existing.Description = _model.Description;
+            _existing.Address = _model.Address;
+            _existing.Phone = _model.Phone;
+            _existing.Latitude = _model.Latitude;
+            _existing.Longitude = _model.Longitude;
+            _existing.HourlyRate = _model.HourlyRate;
+
+            await BusinessService.UpdateAsync(_existing);
+            _isEditing = false;
+            _submitting = false;
+
+            // Reload the business details
+            _existing = await BusinessService.GetByOwnerIdAsync(userId);
+            StateHasChanged();
+        }
+        else
+        {
+            await BusinessService.RegisterAsync(new Business
+            {
+                OwnerId = userId,
+                CategoryId = _model.CategoryId,
+                Name = _model.Name,
+                Description = _model.Description,
+                Address = _model.Address,
+                Phone = _model.Phone,
+                Latitude = _model.Latitude,
+                Longitude = _model.Longitude,
+                HourlyRate = _model.HourlyRate,
+                IsApproved = false,
+                IsOnline = false
+            });
+            Navigation.NavigateTo("/owner", forceLoad: true);
+        }
+    }
+
+    private class BusinessForm
+    {
+        [System.ComponentModel.DataAnnotations.Required]
+        public string Name { get; set; } = "";
+        public string Description { get; set; } = "";
+        public string Address { get; set; } = "";
+        public string Phone { get; set; } = "";
+        public int CategoryId { get; set; }
+        public decimal HourlyRate { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+    }
+
+    private class GeoPos { public double Lat { get; set; } public double Lng { get; set; } }
+}

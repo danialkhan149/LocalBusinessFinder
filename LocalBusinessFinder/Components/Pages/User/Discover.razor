@@ -1,0 +1,201 @@
+@page "/user"
+@layout UserLayout
+@attribute [Authorize(Roles = AppRoles.User)]
+@rendermode InteractiveServer
+@inject BusinessService BusinessService
+@inject IJSRuntime JS
+
+<PageTitle>Discover</PageTitle>
+
+<PageTitle>Discover Services - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">Discover Services</h1>
+            <p class="text-muted mb-0">Find trusted local professionals in Rawalpindi near your location</p>
+        </div>
+    </div>
+
+    <!-- Search / Filter Card -->
+    <div class="premium-card p-4 border-0 shadow-sm mb-4 bg-white">
+        <div class="d-flex flex-wrap gap-3 align-items-center">
+            <div class="flex-grow-1" style="min-width: 250px;">
+                <label class="form-label fw-bold text-dark mb-1">Select Service Category</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-light"><i class="bi bi-search text-muted"></i></span>
+                    <select class="form-select modern-input" @bind="_categoryId" style="height: auto;">
+                        <option value="">All Categories</option>
+                        @foreach (var c in _categories)
+                        {
+                            <option value="@c.Id">@c.Name</option>
+                        }
+                    </select>
+                </div>
+            </div>
+            
+            <div class="pt-4">
+                <button class="btn btn-gradient px-4 py-2 shadow-sm" @onclick="SearchAsync" disabled="@_searching">
+                    @if (_searching)
+                    {
+                        <span class="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                        <span>Searching...</span>
+                    }
+                    else
+                    {
+                        <i class="bi bi-geo-alt-fill me-2"></i><span>Find Nearby Partners</span>
+                    }
+                </button>
+            </div>
+
+            @if (_lat != 0)
+            {
+                <div class="pt-4 ms-auto text-muted small">
+                    <i class="bi bi-compass me-1"></i> Your Location: <strong>@_lat.ToString("F4"), @_lng.ToString("F4")</strong>
+                </div>
+            }
+        </div>
+    </div>
+
+    @if (!string.IsNullOrEmpty(_geoError))
+    {
+        <div class="alert alert-warning border-0 rounded-4 shadow-sm bg-warning bg-opacity-10 text-dark mb-4 d-flex align-items-center">
+            <i class="bi bi-exclamation-triangle-fill fs-3 text-warning me-3"></i>
+            <div>
+                <h6 class="fw-bold mb-0">Location Access Offline</h6>
+                <span class="text-muted small">@_geoError — falling back to Rawalpindi default coordinates.</span>
+            </div>
+        </div>
+    }
+
+    <div class="row g-4">
+        <!-- Results Column -->
+        <div class="col-lg-5">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-list-stars text-accent me-2"></i> Nearby Search Results</h5>
+            
+            @if (_results.Any())
+            {
+                <div style="max-height: 520px; overflow-y: auto; padding-right: 5px;">
+                    @foreach (var item in _results)
+                    {
+                        var b = item.Business;
+                        <div class="premium-card p-4 mb-3 border-0 shadow-sm hover-elevate bg-white">
+                            <div class="d-flex justify-content-between align-items-start mb-2">
+                                <div>
+                                    <h5 class="fw-bold text-dark mb-1"><i class="@b.Category?.Icon text-accent me-2"></i> @b.Name</h5>
+                                    <span class="badge rounded-pill bg-success-soft text-success px-3 py-2 small" style="background: rgba(25,135,84,0.1);">
+                                        <i class="bi bi-geo-alt-fill me-1"></i> @item.DistanceKm.ToString("F1") km away
+                                    </span>
+                                </div>
+                                <div class="text-end">
+                                    <div class="fw-bold text-dark fs-5">Rs @b.HourlyRate/hr</div>
+                                    <div class="text-muted small">Base Rate</div>
+                                </div>
+                            </div>
+                            <p class="text-muted fs-sm mb-3" style="line-height: 1.5; height: 3em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;">@b.Description</p>
+                            <hr class="text-muted opacity-10" />
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div class="small">
+                                    <span class="text-warning"><i class="bi bi-star-fill me-1"></i> <strong>@b.Rating</strong></span>
+                                    <span class="text-muted">(@b.ReviewCount reviews)</span>
+                                </div>
+                                <a href="/user/request/@b.Id" class="btn btn-sm btn-gradient px-4">
+                                    <i class="bi bi-send me-1"></i> Request
+                                </a>
+                            </div>
+                        </div>
+                    }
+                </div>
+            }
+            else if (_searched)
+            {
+                <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+                    <i class="bi bi-emoji-frown fs-1 text-muted mb-3 d-block"></i>
+                    <h6 class="fw-bold text-dark">No professionals found nearby</h6>
+                    <p class="text-muted small px-3">Try broadening your search or choosing a different service category.</p>
+                </div>
+            }
+            else
+            {
+                <div class="text-center py-5 bg-white rounded-4 shadow-sm">
+                    <i class="bi bi-search fs-1 text-accent mb-3 d-block pulse"></i>
+                    <h6 class="fw-bold text-dark">Ready to search</h6>
+                    <p class="text-muted small px-3">Click 'Find Nearby Partners' to locate verified local professionals around you.</p>
+                </div>
+            }
+        </div>
+        
+        <!-- Live Map Column -->
+        <div class="col-lg-7">
+            <h5 class="fw-bold text-dark mb-3"><i class="bi bi-map-fill text-primary me-2"></i> Area Live Map</h5>
+            <div class="premium-card overflow-hidden border-0 shadow-sm">
+                <LiveMap @ref="_map" CenterLat="_lat" CenterLng="_lng" Height="500" />
+            </div>
+        </div>
+    </div>
+</div>
+
+@code {
+    private List<ServiceCategory> _categories = [];
+    private List<BusinessSearchResult> _results = [];
+    private LiveMap? _map;
+    private string _categoryId = "";
+    private double _lat = 33.5984, _lng = 73.0441;
+    private bool _searching, _searched;
+    private string? _geoError;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _categories = await BusinessService.GetCategoriesAsync();
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (!firstRender) return;
+        try
+        {
+            var pos = await JS.InvokeAsync<GeoPos>("lbfSignalR.getCurrentPosition");
+            bool inPindiIsb = pos.Lat >= 33.3 && pos.Lat <= 33.9 && pos.Lng >= 72.7 && pos.Lng <= 73.4;
+            if (inPindiIsb)
+            {
+                _lat = pos.Lat;
+                _lng = pos.Lng;
+            }
+            else
+            {
+                _lat = 33.5984;
+                _lng = 73.0441;
+                _geoError = "Detected location outside Rawalpindi/Islamabad. Defaulting search coordinates to Rawalpindi.";
+            }
+        }
+        catch
+        {
+            _geoError = "Location access denied — defaulting to Rawalpindi coordinates.";
+            _lat = 33.5984;
+            _lng = 73.0441;
+        }
+
+        StateHasChanged();
+    }
+
+    private async Task SearchAsync()
+    {
+        _searching = true;
+        _searched = true;
+        int? catId = int.TryParse(_categoryId, out var id) ? id : null;
+        _results = await BusinessService.SearchNearbyAsync(catId, _lat, _lng);
+        _searching = false;
+
+        if (_map != null)
+        {
+            await _map.SetCenterAsync(_lat, _lng);
+            await _map.UpdateMarkerAsync("me", _lat, _lng, "You", "#0d6efd");
+            foreach (var r in _results)
+            {
+                await _map.UpdateMarkerAsync($"b-{r.Business.Id}", r.Business.Latitude, r.Business.Longitude, r.Business.Name, "#198754");
+            }
+        }
+    }
+
+    private class GeoPos { public double Lat { get; set; } public double Lng { get; set; } }
+}

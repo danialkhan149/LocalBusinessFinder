@@ -1,0 +1,159 @@
+@page "/owner"
+@layout OwnerLayout
+@attribute [Authorize(Roles = AppRoles.BusinessOwner)]
+@rendermode InteractiveServer
+@inject BusinessService BusinessService
+@inject RequestService RequestService
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Owner Dashboard</PageTitle>
+
+<PageTitle>Owner Dashboard - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    @if (_business == null)
+    {
+        <div class="glass-panel p-5 border-0 shadow text-white text-center" style="background: linear-gradient(135deg, #1e3a5f 0%, #0f172a 100%);">
+            <div class="icon-box rounded-circle bg-white bg-opacity-10 d-inline-flex align-items-center justify-content-center mb-4" style="width: 80px; height: 80px;">
+                <i class="bi bi-shop fs-1 text-accent"></i>
+            </div>
+            <h2 class="fw-bold mb-2">Register Your Business First</h2>
+            <p class="text-white-50 max-w-md mx-auto mb-4">Add your business or trade details so thousands of local customers in Rawalpindi can find you.</p>
+            <a href="/owner/register" class="btn btn-gradient btn-lg rounded-pill px-5">
+                <i class="bi bi-plus-circle me-2"></i> Register Business
+            </a>
+        </div>
+    }
+    else
+    {
+        <div class="d-flex flex-column flex-md-row justify-content-between align-items-md-center mb-4 gap-3">
+            <div>
+                <h1 class="fw-bold mb-1 text-dark">@_business.Name</h1>
+                <p class="text-muted mb-0">Business Dashboard & Settings</p>
+            </div>
+            <div class="premium-card p-3 border-0 shadow-sm bg-white d-flex align-items-center gap-3">
+                <div class="form-check form-switch m-0 fs-5">
+                    <input class="form-check-input" type="checkbox" @bind="_business.IsOnline" @bind:after="SaveOnlineAsync" id="online" />
+                    <label class="form-check-label fw-bold text-dark" for="online">
+                        @(_business.IsOnline ? "Available Online" : "Go Online")
+                    </label>
+                </div>
+                <span class="badge rounded-circle @(_business.IsOnline ? "bg-success" : "bg-secondary") pulse" style="width: 12px; height: 12px; display: inline-block;">&nbsp;</span>
+            </div>
+        </div>
+
+        @if (!_business.IsApproved)
+        {
+            <div class="alert alert-warning border-0 rounded-4 shadow-sm bg-warning bg-opacity-10 text-dark mb-4 d-flex align-items-center">
+                <i class="bi bi-exclamation-circle-fill fs-3 text-warning me-3"></i>
+                <div>
+                    <h6 class="fw-bold mb-0">Approval Pending</h6>
+                    <span class="text-muted small">Your business profile is currently being reviewed by the administrators. You will be able to receive incoming requests once approved.</span>
+                </div>
+            </div>
+        }
+
+        <div class="row g-4 mb-4">
+            <!-- Pending Requests -->
+            <div class="col-md-3">
+                <a href="/owner/requests" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #fd7e14 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Pending</h6>
+                                <h2 class="fw-bold mb-0 text-warning">@_pendingCount</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(253, 126, 20, 0.1); color: #fd7e14;">
+                                <i class="bi bi-chat-left-dots fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Active Jobs -->
+            <div class="col-md-3">
+                <a href="/owner/requests" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #198754 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Active Jobs</h6>
+                                <h2 class="fw-bold mb-0 text-success">@_activeCount</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(25, 135, 84, 0.1); color: #198754;">
+                                <i class="bi bi-geo-alt fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Completed Jobs -->
+            <div class="col-md-3">
+                <a href="/owner/completed-requests" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #0dcaf0 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Completed</h6>
+                                <h2 class="fw-bold mb-0 text-info">@_completedCount</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(13, 202, 240, 0.1); color: #0dcaf0;">
+                                <i class="bi bi-check2-circle fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Business Rating -->
+            <div class="col-md-3">
+                <div class="premium-card p-4 border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #ffc107 !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Rating</h6>
+                            <h2 class="fw-bold mb-0 text-dark"><i class="bi bi-star-fill text-warning me-1"></i> @_business.Rating.ToString("F1")</h2>
+                        </div>
+                        <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(255, 193, 7, 0.1); color: #ffc107;">
+                            <i class="bi bi-award fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-start gap-3 mt-4">
+            <a href="/owner/requests" class="btn btn-gradient btn-lg rounded-pill px-5 shadow">
+                <i class="bi bi-list-task me-2"></i> Manage Incoming Requests
+            </a>
+            <a href="/owner/register" class="btn btn-outline-dark btn-lg rounded-pill px-5 shadow-sm">
+                <i class="bi bi-pencil-square me-2"></i> Edit Business Profile
+            </a>
+        </div>
+    }
+</div>
+
+@code {
+    private Business? _business;
+    private int _pendingCount, _activeCount, _completedCount;
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return;
+
+        _business = await BusinessService.GetByOwnerIdAsync(userId);
+        if (_business == null) return;
+
+        var requests = await RequestService.GetForBusinessAsync(_business.Id);
+        _pendingCount = requests.Count(r => r.Status == RequestStatus.Pending);
+        _activeCount = requests.Count(r => r.Status is RequestStatus.InProgress or RequestStatus.DealAgreed);
+        _completedCount = requests.Count(r => r.Status == RequestStatus.Completed);
+    }
+
+    private async Task SaveOnlineAsync()
+    {
+        if (_business != null)
+            await BusinessService.UpdateAsync(_business);
+    }
+}

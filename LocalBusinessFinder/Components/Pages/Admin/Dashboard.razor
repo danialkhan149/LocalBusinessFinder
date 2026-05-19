@@ -1,0 +1,137 @@
+@page "/admin"
+@layout AdminLayout
+@attribute [Authorize(Roles = AppRoles.Admin)]
+@rendermode InteractiveServer
+@inject AdminService AdminService
+
+<PageTitle>Admin Dashboard - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">System Dashboard</h1>
+            <p class="text-muted mb-0">Overview and control center for Pindi Ki Khoj</p>
+        </div>
+    </div>
+
+    @if (_stats == null)
+    {
+        <div class="text-center py-5">
+            <div class="spinner-border text-accent" role="status"></div>
+            <p class="text-muted mt-3">Fetching real-time stats...</p>
+        </div>
+    }
+    else
+    {
+        <div class="row g-4">
+            <!-- Total Users -->
+            <div class="col-xl-3 col-sm-6">
+                <a href="/admin/users" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #00c853 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Total Users</h6>
+                                <h2 class="fw-bold mb-0 text-dark">@_stats.TotalUsers</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(0, 200, 83, 0.1); color: #00c853;">
+                                <i class="bi bi-people-fill fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Total Businesses -->
+            <div class="col-xl-3 col-sm-6">
+                <a href="/admin/businesses" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #0d6efd !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Businesses</h6>
+                                <h2 class="fw-bold mb-0 text-dark">@_stats.TotalBusinesses</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(13, 110, 253, 0.1); color: #0d6efd;">
+                                <i class="bi bi-shop fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Pending Approval -->
+            <div class="col-xl-3 col-sm-6">
+                <a href="/admin/businesses" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #fd7e14 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Pending Approval</h6>
+                                <h2 class="fw-bold mb-0 text-warning">@_stats.PendingBusinesses</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(253, 126, 20, 0.1); color: #fd7e14;">
+                                <i class="bi bi-hourglass-split fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Active Trips -->
+            <div class="col-xl-3 col-sm-6">
+                <a href="/admin/requests" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #198754 !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Active Trips</h6>
+                                <h2 class="fw-bold mb-0 text-success">@_stats.ActiveRequests</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(25, 135, 84, 0.1); color: #198754;">
+                                <i class="bi bi-geo-alt-fill fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Completed Requests -->
+            <div class="col-xl-3 col-sm-6">
+                <a href="/admin/requests" class="text-decoration-none d-block">
+                    <div class="premium-card p-4 hover-elevate border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #6c757d !important;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <div>
+                                <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Completed Trips</h6>
+                                <h2 class="fw-bold mb-0 text-dark">@_stats.CompletedRequests</h2>
+                            </div>
+                            <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(108, 117, 125, 0.1); color: #6c757d;">
+                                <i class="bi bi-check-circle-fill fs-4"></i>
+                            </div>
+                        </div>
+                    </div>
+                </a>
+            </div>
+
+            <!-- Total Categories -->
+            <div class="col-xl-3 col-sm-6">
+                <div class="premium-card p-4 border-0 shadow-sm h-100 position-relative overflow-hidden" style="border-left: 5px solid #6f42c1 !important;">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div>
+                            <h6 class="text-uppercase text-muted fw-bold mb-2 fs-xs">Categories</h6>
+                            <h2 class="fw-bold mb-0 text-dark">@_stats.TotalCategories</h2>
+                        </div>
+                        <div class="icon-box rounded-circle d-flex align-items-center justify-content-center" style="width: 50px; height: 50px; background: rgba(111, 66, 193, 0.1); color: #6f42c1;">
+                            <i class="bi bi-grid-fill fs-4"></i>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    }
+</div>
+
+@code {
+    private DashboardStats? _stats;
+
+    protected override async Task OnInitializedAsync()
+    {
+        _stats = await AdminService.GetStatsAsync();
+    }
+}

@@ -1,0 +1,76 @@
+@inherits LayoutComponentBase
+@using System.Security.Claims
+@using Microsoft.AspNetCore.Identity
+@using Microsoft.Extensions.DependencyInjection
+@using LocalBusinessFinder.Data
+@inject AuthenticationStateProvider AuthState
+@inject IServiceProvider ServiceProvider
+
+<div class="app-shell owner-shell">
+    <aside class="sidebar owner-sidebar shadow-sm">
+        <div class="brand py-4 px-3 d-flex align-items-center gap-2">
+            <div class="logo-circle bg-warning rounded-circle d-flex align-items-center justify-content-center" style="width: 40px; height: 40px; color: #0f172a;">
+                <i class="bi bi-shop fs-5"></i>
+            </div>
+            <div class="brand-text">
+                <div class="fw-bold fs-5 text-dark" style="letter-spacing: 0.5px;">PINDI KI KHOJ</div>
+                <div class="text-muted fs-3xs text-uppercase fw-semibold" style="letter-spacing: 1px;">Partner Hub</div>
+            </div>
+        </div>
+        <nav class="nav flex-column px-3 mt-3 gap-2">
+            <NavLink class="nav-link rounded-3 px-3 py-2 d-flex align-items-center gap-2 fw-semibold" href="/owner" Match="NavLinkMatch.All">
+                <i class="bi bi-speedometer2"></i> Dashboard
+            </NavLink>
+            <NavLink class="nav-link rounded-3 px-3 py-2 d-flex align-items-center gap-2 fw-semibold" href="/owner/register">
+                <i class="bi bi-shop-window"></i> My Business
+            </NavLink>
+            <NavLink class="nav-link rounded-3 px-3 py-2 d-flex align-items-center gap-2 fw-semibold" href="/owner/requests">
+                <i class="bi bi-mailbox"></i> Incoming Requests
+            </NavLink>
+            <NavLink class="nav-link rounded-3 px-3 py-2 d-flex align-items-center gap-2 fw-semibold" href="/owner/completed-requests">
+                <i class="bi bi-check2-circle"></i> Completed Tasks
+            </NavLink>
+        </nav>
+        <div class="sidebar-footer mt-auto p-3">
+            <a href="/" class="nav-link rounded-3 px-3 py-2 d-flex align-items-center gap-2 mb-2"><i class="bi bi-house-door"></i> Home</a>
+            <a href="/account/logout" class="nav-link text-danger rounded-3 px-3 py-2 d-flex align-items-center gap-2" data-enhance-nav="false" target="_top"><i class="bi bi-box-arrow-right"></i> Logout</a>
+        </div>
+    </aside>
+    <div class="shell-main">
+        <header class="topbar owner-topbar px-4 py-3 d-flex justify-content-between align-items-center bg-white border-bottom shadow-xs">
+            <h5 class="mb-0 fw-bold text-dark"><i class="bi bi-shop text-warning me-2"></i> Manage Your Business</h5>
+            <div class="d-flex align-items-center gap-2">
+                <span class="text-muted small">Logged in as:</span>
+                <span class="badge bg-warning text-dark rounded-pill px-3 py-2">@_userName</span>
+            </div>
+        </header>
+        <article class="content px-4 py-4">
+            @Body
+        </article>
+    </div>
+</div>
+
+@code {
+    private string _userName = "";
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var principal = state.User;
+        if (principal.Identity?.IsAuthenticated == true)
+        {
+            var userId = principal.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (userId != null)
+            {
+                using var scope = ServiceProvider.CreateScope();
+                var userManager = scope.ServiceProvider.GetRequiredService<UserManager<ApplicationUser>>();
+                var user = await userManager.FindByIdAsync(userId);
+                _userName = user?.FullName ?? user?.Email ?? principal.Identity.Name ?? "User";
+            }
+            else
+            {
+                _userName = principal.Identity.Name ?? "User";
+            }
+        }
+    }
+}

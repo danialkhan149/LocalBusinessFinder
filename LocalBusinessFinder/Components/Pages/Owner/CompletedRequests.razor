@@ -1,0 +1,88 @@
+@page "/owner/completed-requests"
+@layout OwnerLayout
+@attribute [Authorize(Roles = AppRoles.BusinessOwner)]
+@rendermode InteractiveServer
+@inject BusinessService BusinessService
+@inject RequestService RequestService
+@inject AuthenticationStateProvider AuthState
+
+<PageTitle>Completed Requests - Pindi Ki Khoj</PageTitle>
+
+<div class="container py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <div>
+            <h1 class="fw-bold mb-1 text-dark">Completed Tasks</h1>
+            <p class="text-muted mb-0">View all your successfully completed services</p>
+        </div>
+    </div>
+
+    @if (_business == null)
+    {
+        <div class="alert alert-info border-0 rounded-4 shadow-sm text-center py-4">
+            <i class="bi bi-info-circle fs-2 text-info mb-2 d-block"></i>
+            <h5 class="fw-bold">Register your business first</h5>
+            <p class="text-muted mb-0">Please set up your business details to view completed requests.</p>
+        </div>
+    }
+    else
+    {
+        @if (!_requests.Any())
+        {
+            <div class="text-center py-5">
+                <i class="bi bi-check2-circle fs-1 text-muted mb-3 d-block"></i>
+                <h5 class="fw-bold text-dark">No completed tasks yet</h5>
+                <p class="text-muted">Once you complete a service, it will appear here.</p>
+            </div>
+        }
+        else
+        {
+            <div class="row g-3">
+                @foreach (var r in _requests)
+                {
+                    <div class="col-md-6">
+                        <div class="premium-card p-4 border-0 shadow-sm hover-elevate" style="border-left: 5px solid #198754 !important;">
+                            <div class="d-flex justify-content-between align-items-start mb-3">
+                                <div>
+                                    <h5 class="fw-bold mb-1 text-dark">@r.Title</h5>
+                                    <span class="badge bg-success rounded-pill px-3 py-2 small">@r.Status</span>
+                                </div>
+                                <div class="text-end text-muted small">
+                                    <i class="bi bi-calendar-check me-1"></i> @(r.CompletedAt?.ToLocalTime().ToString("g") ?? r.CreatedAt.ToLocalTime().ToString("g"))
+                                </div>
+                            </div>
+                            <p class="text-muted mb-3 fs-sm" style="line-height: 1.5; height: 4.5em; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical;">@r.Description</p>
+                            <div class="d-flex justify-content-between align-items-center">
+                                <div>
+                                    <span class="small fw-semibold text-dark">Customer:</span>
+                                    <span class="text-muted small">@r.User?.FullName</span>
+                                </div>
+                                <a href="/request/@r.Id" class="btn btn-sm btn-outline-success px-4 py-2">
+                                    <i class="bi bi-eye me-1"></i> View Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                }
+            </div>
+        }
+    }
+</div>
+
+@code {
+    private Business? _business;
+    private List<ServiceRequest> _requests = [];
+
+    protected override async Task OnInitializedAsync()
+    {
+        var state = await AuthState.GetAuthenticationStateAsync();
+        var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+        if (userId == null) return;
+
+        _business = await BusinessService.GetByOwnerIdAsync(userId);
+        if (_business != null)
+        {
+            var allRequests = await RequestService.GetForBusinessAsync(_business.Id);
+            _requests = allRequests.Where(r => r.Status == RequestStatus.Completed).ToList();
+        }
+    }
+}

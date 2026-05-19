@@ -1,0 +1,28 @@
+window.pindi = {
+    togglePasswordVisibility: function(inputId, iconId) {
+        const input = document.getElementById(inputId);
+        const icon = document.getElementById(iconId);
+        if (!input || !icon) return;
+        
+        if (input.type === 'password') {
+            input.type = 'text';
+            icon.classList.replace('bi-eye', 'bi-eye-slash');
+            setTimeout(() => {
+                input.type = 'password';
+                icon.classList.replace('bi-eye-slash', 'bi-eye');
+            }, 2000);
+        } else {
+            input.type = 'password';
+            icon.classList.replace('bi-eye-slash', 'bi-eye');
+        }
+    },
+
+    fadeOutSplash: function() {
+        const splash = document.getElementById('splash-screen');
+        if (splash) {
+            splash.style.opacity = '0';
+            splash.style.transform = 'scale(1.1)';
+            setTimeout(() => splash.remove(), 600); // Wait for CSS transition
+        }
+    }
+};

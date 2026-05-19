@@ -1,0 +1,134 @@
+@page "/account/login"
+@using System.ComponentModel.DataAnnotations
+@inject SignInManager<ApplicationUser> SignInManager
+@inject UserManager<ApplicationUser> UserManager
+@inject NavigationManager Navigation
+
+<PageTitle>Sign In - Pindi Ki Khoj</PageTitle>
+
+<div class="auth-page">
+    <div class="auth-card glass-panel p-4 p-md-5 border-0 shadow-lg text-white" style="background: rgba(15, 23, 42, 0.75); max-width: 460px;">
+        <div class="text-center mb-4">
+            <h1 class="fw-bolder splash-title mb-2 text-accent" style="font-size: 2.2rem;">PINDI KI KHOJ</h1>
+            <p class="text-white-50">Welcome back! Sign in to find nearby services.</p>
+        </div>
+
+        @if (!string.IsNullOrEmpty(_error))
+        {
+            <div class="alert alert-danger border-0 rounded-3 shadow-sm bg-danger text-white mb-4">
+                <i class="bi bi-exclamation-triangle-fill me-2"></i> @_error
+            </div>
+        }
+
+        <EditForm Model="_model" OnValidSubmit="HandleLogin" FormName="login">
+            <DataAnnotationsValidator />
+            
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">Email Address</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-envelope"></i></span>
+                    <InputText @bind-Value="_model.Email" class="form-control modern-input border-0 text-white" style="background: rgba(255,255,255,0.08);" placeholder="you@email.com" />
+                </div>
+                <ValidationMessage For="() => _model.Email" class="text-warning small mt-1" />
+            </div>
+
+            <div class="mb-4">
+                <label class="form-label text-white-50 fw-semibold">Password</label>
+                <div class="input-group">
+                    <span class="input-group-text border-0 bg-white bg-opacity-10 text-white-50"><i class="bi bi-lock"></i></span>
+                    <InputText type="password" id="loginPassword" @bind-Value="_model.Password" class="form-control modern-input border-0 text-white" style="background: rgba(255,255,255,0.08);" placeholder="••••••••" />
+                    <button type="button" class="btn btn-outline-light border-0 bg-white bg-opacity-10 text-white-50" onclick="window.pindi.togglePasswordVisibility('loginPassword', 'loginEyeIcon')">
+                        <i class="bi bi-eye" id="loginEyeIcon"></i>
+                    </button>
+                </div>
+                <ValidationMessage For="() => _model.Password" class="text-warning small mt-1" />
+            </div>
+            
+            <div class="mb-4 d-flex justify-content-between align-items-center">
+                <div class="form-check">
+                    <InputCheckbox @bind-Value="_model.RememberMe" class="form-check-input bg-white bg-opacity-10 border-0" id="remember" />
+                    <label class="form-check-label text-white-50 fw-semibold" for="remember">Remember me</label>
+                </div>
+            </div>
+
+            <button type="submit" class="btn btn-gradient w-100 py-3 fs-5 rounded-pill shadow" disabled="@_loading">
+                @(_loading ? "Signing in..." : "Sign In")
+            </button>
+        </EditForm>
+
+        <p class="mt-4 text-center text-white-50 mb-0">
+            Don't have an account? <a href="/account/register" target="_top" class="text-accent fw-bold text-decoration-none">Register</a>
+        </p>
+        <p class="text-center mt-3 mb-0">
+            <a href="/" target="_top" class="text-white-50 small text-decoration-none"><i class="bi bi-arrow-left"></i> Back to home</a>
+        </p>
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? ReturnUrl { get; set; }
+
+    [SupplyParameterFromForm]
+    private LoginModel _model { get; set; } = new();
+
+    private string? _error;
+    private bool _loading;
+
+    private async Task HandleLogin()
+    {
+        _loading = true;
+        _error = null;
+        try
+        {
+            var emailTrimmed = _model.Email.Trim();
+            var user = await UserManager.FindByEmailAsync(emailTrimmed);
+            if (user == null)
+            {
+                _error = $"Account not found for '{emailTrimmed}'.";
+                return;
+            }
+            
+            if (!user.IsActive)
+            {
+                _error = "Account is disabled.";
+                return;
+            }
+
+            var result = await SignInManager.PasswordSignInAsync(
+                user.UserName!, _model.Password, _model.RememberMe, lockoutOnFailure: false);
+
+            if (!result.Succeeded)
+            {
+                _error = "Incorrect password.";
+                return;
+            }
+
+            var roles = await UserManager.GetRolesAsync(user);
+            var dest = roles.FirstOrDefault() switch
+            {
+                AppRoles.Admin => "/admin",
+                AppRoles.BusinessOwner => "/owner",
+                AppRoles.User => "/user",
+                _ => "/"
+            };
+
+            var url = string.IsNullOrEmpty(ReturnUrl) ? dest : ReturnUrl;
+            Navigation.NavigateTo(url, forceLoad: true);
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+
+    private class LoginModel
+    {
+        [Required, EmailAddress]
+        public string Email { get; set; } = "";
+
+        [Required]
+        public string Password { get; set; } = "";
+
+        public bool RememberMe { get; set; }
+    }
+}

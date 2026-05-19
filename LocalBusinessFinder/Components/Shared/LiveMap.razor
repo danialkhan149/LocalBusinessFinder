@@ -1,0 +1,74 @@
+@inject IJSRuntime JS
+@implements IAsyncDisposable
+
+<div id="@_mapId" class="live-map" style="height: @(Height)px;"></div>
+
+@code {
+    [Parameter] public double CenterLat { get; set; } = 33.5984;
+    [Parameter] public double CenterLng { get; set; } = 73.0441;
+    [Parameter] public int Zoom { get; set; } = 13;
+    [Parameter] public int Height { get; set; } = 400;
+    [Parameter] public string MapId { get; set; } = "";
+
+    private string _mapId = "";
+    private DotNetObjectReference<LiveMap>? _dotNetRef;
+    private bool _initialized;
+
+    protected override void OnInitialized()
+    {
+        _mapId = string.IsNullOrEmpty(MapId) ? $"map-{Guid.NewGuid():N}" : MapId;
+    }
+
+    public async Task SetCenterAsync(double lat, double lng, int? zoom = null)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("lbfMaps.setCenter", _mapId, lat, lng, zoom ?? Zoom);
+    }
+
+    public async Task UpdateMarkerAsync(string markerId, double lat, double lng, string? label = null, string color = "#0d6efd")
+    {
+        if (!_initialized) await InitializeMapAsync();
+        await JS.InvokeVoidAsync("lbfMaps.updateMarker", _mapId, markerId, lat, lng, label ?? markerId, color);
+    }
+
+    public async Task RemoveMarkerAsync(string markerId)
+    {
+        if (!_initialized) return;
+        await JS.InvokeVoidAsync("lbfMaps.removeMarker", _mapId, markerId);
+    }
+
+    private async Task InitializeMapAsync()
+    {
+        if (_initialized) return;
+        _initialized = true;
+        _dotNetRef = DotNetObjectReference.Create(this);
+        await JS.InvokeVoidAsync("lbfMaps.init", _mapId, CenterLat, CenterLng, Zoom);
+    }
+
+    protected override async Task OnAfterRenderAsync(bool firstRender)
+    {
+        if (firstRender && !_initialized)
+        {
+            await InitializeMapAsync();
+        }
+    }
+
+    public async Task DrawRouteAsync(double[][] points)
+    {
+        await JS.InvokeVoidAsync("lbfMaps.drawRoute", _mapId, points);
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (_initialized)
+        {
+            try
+            {
+                await JS.InvokeVoidAsync("lbfMaps.destroy", _mapId);
+            }
+            catch (JSDisconnectedException) { }
+            catch (TaskCanceledException) { }
+        }
+        _dotNetRef?.Dispose();
+    }
+}
