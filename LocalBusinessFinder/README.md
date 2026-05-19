@@ -1,71 +1,22 @@
-# Local Business Finder
+# Pindi Ki Khoj
 
-Blazor Web App for finding local businesses, negotiating deals, chatting, and live GPS tracking.
+A local service and business finder for Rawalpindi built using ASP.NET Core Blazor. 
 
-## Visual Studio 2022
+This is our 4th-semester Visual Programming semester project. It connects local professionals (like mechanics, home tutors, or restaurants) directly with customers, featuring real-time negotiation, live GPS tracking via Leaflet, and direct messaging using SignalR.
 
-1. Install **Visual Studio 2022** (17.12 or later) with:
-   - ASP.NET and web development workload
-   - **.NET 9 SDK**
-   - **SQL Server Express LocalDB** (included with VS)
-2. Open `LocalBusinessFinder.sln` in the parent folder (`VP Project`).
-3. Set **LocalBusinessFinder** as the startup project.
-4. Press **F5** (profile: `https`).
+## Team Members
+* Muhammad Ali - [Registration Number]
+* Hafiz Danial Ahmed Khan - 241881
+* Muhammad Farhan Adil - [Registration Number]
 
-## Database (SQL Server — default)
+## Tech Stack
+* **Frontend/UI:** Blazor Server, HTML, CSS (Bootstrap), Leaflet.js
+* **Backend:** ASP.NET Core
+* **Real-time Comms:** SignalR
+* **Database:** SQLite / SQL Server / Entity Framework Core
 
-The app uses **SQL Server LocalDB** by default:
-
-```
-Server=(localdb)\mssqllocaldb;Database=LocalBusinessFinder_Dev;...
-```
-
-On first run, EF Core applies migrations and seeds demo data automatically.
-
-### Use full SQL Server
-
-Edit `appsettings.Development.json`:
-
-```json
-"ConnectionStrings": {
-  "SqlServer": "Server=YOUR_SERVER;Database=LocalBusinessFinder;User Id=sa;Password=YourPassword;TrustServerCertificate=True;MultipleActiveResultSets=true"
-}
-```
-
-### Use SQLite (no SQL Server required)
-
-```bash
-dotnet run -- --sqlite
-```
-
-Or in Visual Studio, select the **Sqlite** launch profile.
-
-### EF migrations (Package Manager Console)
-
-```powershell
-Add-Migration MigrationName -OutputDir Data\Migrations
-Update-Database
-```
-
-## Run from command line
-
-```bash
-cd LocalBusinessFinder
-dotnet run
-```
-
-## Demo accounts
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | admin@localfinder.com | Admin@123 |
-| Customer | user@demo.com | Demo@123 |
-| Business owner | owner1@demo.com | Demo@123 |
-
-## Configuration keys
-
-| Key | Description |
-|-----|-------------|
-| `Database:Provider` | `SqlServer` (default) or `Sqlite` |
-| `ConnectionStrings:SqlServer` | SQL Server connection string |
-| `ConnectionStrings:Sqlite` | SQLite file path |
+## Setup & Running Locally
+1. Clone the repository.
+2. Ensure you have the .NET 8 SDK installed.
+3. Open the solution file (`LocalBusinessFinder.sln`) in Visual Studio.
+4. Run the project (F5). The database migrations will handle the rest.
