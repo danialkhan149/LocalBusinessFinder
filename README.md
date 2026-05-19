@@ -5,9 +5,9 @@ A local service and business finder for Rawalpindi built using ASP.NET Core Blaz
 This is our 4th-semester Visual Programming semester project. It connects local professionals (like mechanics, home tutors, or restaurants) directly with customers, featuring real-time negotiation, live GPS tracking via Leaflet, and direct messaging using SignalR.
 
 ## Team Members
-* Muhammad Ali - [Registration Number]
+* Muhammad Ali - 241896
 * Hafiz Danial Ahmed Khan - 241881
-* Muhammad Farhan Adil - [Registration Number]
+* Muhammad Farhan Adil - 241860
 
 ## Tech Stack
 * **Frontend/UI:** Blazor Server, HTML, CSS (Bootstrap), Leaflet.js
