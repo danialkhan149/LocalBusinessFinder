@@ -139,7 +139,14 @@ else
                             @if (_request.Status == RequestStatus.DealAgreed)
                             {
                                 <h5 class="fw-bold mb-3">Ready to begin?</h5>
-                                <button class="btn btn-light text-primary fw-bold w-100 py-2 shadow-sm rounded-pill" @onclick="StartTripAsync"><i class="bi bi-play-circle-fill"></i> Start Live Tracking</button>
+                                @if (_isBusinessOwner)
+                                {
+                                    <button class="btn btn-light text-primary fw-bold w-100 py-2 shadow-sm rounded-pill" @onclick="StartTripAsync"><i class="bi bi-play-circle-fill"></i> Start Live Tracking</button>
+                                }
+                                else
+                                {
+                                    <div class="text-light opacity-75"><i class="bi bi-hourglass-split"></i> Waiting for business to start the job...</div>
+                                }
                             }
                             @if (_request.Status == RequestStatus.InProgress && _isParticipant)
                             {
@@ -147,7 +154,14 @@ else
                                     <div class="spinner-grow spinner-grow-sm text-light me-2" role="status"></div>
                                     <span class="fw-bold">Job in progress. Sharing live location...</span>
                                 </div>
-                                <button class="btn btn-success fw-bold w-100 py-2 shadow-sm rounded-pill border-white" @onclick="CompleteTripAsync"><i class="bi bi-check-circle-fill"></i> Mark as Completed</button>
+                                @if (_isBusinessOwner)
+                                {
+                                    <button class="btn btn-success fw-bold w-100 py-2 shadow-sm rounded-pill border-white" @onclick="CompleteTripAsync"><i class="bi bi-check-circle-fill"></i> Mark as Completed</button>
+                                }
+                                else
+                                {
+                                    <div class="text-light opacity-75"><i class="bi bi-info-circle"></i> Business will mark this complete when finished.</div>
+                                }
                             }
                         </div>
                     </div>
@@ -216,7 +230,22 @@ else
     private readonly System.Threading.SemaphoreSlim _dbLock = new System.Threading.SemaphoreSlim(1, 1);
 
     private bool CanChat => _request != null && _request.Status is not RequestStatus.Completed and not RequestStatus.Cancelled;
-    private bool ShowDealActions => _isParticipant && _request!.Status is RequestStatus.Negotiating or RequestStatus.Accepted;
+    private bool ShowDealActions
+    {
+        get
+        {
+            if (!_isParticipant || _request?.Status is not (RequestStatus.Negotiating or RequestStatus.Accepted))
+                return false;
+
+            var lastOffer = _request.Messages.OrderByDescending(m => m.SentAt).FirstOrDefault(m => m.IsOffer);
+            if (lastOffer != null)
+            {
+                return lastOffer.SenderId != _userId;
+            }
+
+            return _isBusinessOwner;
+        }
+    }
     private bool ShowOwnerActions => _isBusinessOwner && _request!.Status == RequestStatus.Pending;
     private string StatusBadgeClass => _request?.Status switch
     {
