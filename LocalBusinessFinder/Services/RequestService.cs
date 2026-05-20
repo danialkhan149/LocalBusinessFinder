@@ -44,6 +44,14 @@ public class RequestService(ApplicationDbContext db)
             .OrderByDescending(r => r.CreatedAt)
             .ToListAsync();
 
+    public async Task<(int Pending, int Active, int Completed)> GetDashboardStatsAsync(int businessId)
+    {
+        var pending = await db.ServiceRequests.CountAsync(r => r.BusinessId == businessId && (r.Status == RequestStatus.Pending || r.Status == RequestStatus.Negotiating || r.Status == RequestStatus.Accepted));
+        var active = await db.ServiceRequests.CountAsync(r => r.BusinessId == businessId && (r.Status == RequestStatus.InProgress || r.Status == RequestStatus.DealAgreed));
+        var completed = await db.ServiceRequests.CountAsync(r => r.BusinessId == businessId && r.Status == RequestStatus.Completed);
+        return (pending, active, completed);
+    }
+
     public Task<List<ServiceRequest>> GetAllAsync() =>
         db.ServiceRequests
             .AsNoTracking()
@@ -110,7 +118,15 @@ public class RequestService(ApplicationDbContext db)
         var req = await db.ServiceRequests.FindAsync(message.ServiceRequestId);
         if (req != null && req.Status == RequestStatus.Pending)
             req.Status = RequestStatus.Negotiating;
-        await db.SaveChangesAsync();
+        
+        try
+        {
+            await db.SaveChangesAsync();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            // If another message updated the status concurrently, it's safe to ignore.
+        }
         return message;
     }
 

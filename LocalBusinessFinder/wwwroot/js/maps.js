@@ -141,8 +141,14 @@ window.lbfSignalR = {
 
     watchPosition(dotNetRef) {
         if (!navigator.geolocation) return null;
+        let lastUpdate = 0;
         return navigator.geolocation.watchPosition(
-            (pos) => dotNetRef.invokeMethodAsync('OnGpsUpdate', pos.coords.latitude, pos.coords.longitude),
+            (pos) => {
+                const now = Date.now();
+                if (now - lastUpdate < 5000) return;
+                lastUpdate = now;
+                dotNetRef.invokeMethodAsync('OnGpsUpdate', pos.coords.latitude, pos.coords.longitude);
+            },
             () => { },
             { enableHighAccuracy: true, maximumAge: 5000, timeout: 15000 }
         );

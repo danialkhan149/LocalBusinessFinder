@@ -2,6 +2,7 @@
 @using System.ComponentModel.DataAnnotations
 @inject UserManager<ApplicationUser> UserManager
 @inject SignInManager<ApplicationUser> SignInManager
+@inject IEmailSender<ApplicationUser> EmailSender
 @inject NavigationManager Navigation
 
 <PageTitle>Create Account - Pindi Ki Khoj</PageTitle>
@@ -74,6 +75,21 @@
             </button>
         </EditForm>
 
+        <div class="d-flex align-items-center my-4">
+            <hr class="flex-grow-1 border-light m-0" style="opacity: 0.2;" />
+            <span class="px-3 text-white-50 small fw-bold">OR</span>
+            <hr class="flex-grow-1 border-light m-0" style="opacity: 0.2;" />
+        </div>
+
+        <form action="/account/external-login" method="post">
+            <input type="hidden" name="provider" value="Google" />
+            <input type="hidden" name="role" value="@_model.Role" />
+            <button type="submit" class="btn btn-light w-100 py-3 fs-5 rounded-pill shadow-sm d-flex justify-content-center align-items-center gap-2 fw-bold" disabled="@_loading" style="color: #3c4043;">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 24px; height: 24px;" />
+                Register with Google
+            </button>
+        </form>
+
         <p class="mt-4 text-center text-white-50 mb-0">
             Already have an account? <a href="/account/login" class="text-accent fw-bold text-decoration-none">Sign In</a>
         </p>
@@ -120,14 +136,16 @@
             }
 
             await UserManager.AddToRoleAsync(user, _model.Role);
-            await SignInManager.SignInAsync(user, isPersistent: false);
 
-            var dest = _model.Role switch
-            {
-                AppRoles.BusinessOwner => "/owner/register",
-                _ => "/user"
-            };
-            Navigation.NavigateTo(dest, forceLoad: true);
+            var code = await UserManager.GenerateEmailConfirmationTokenAsync(user);
+            var codeEncoded = Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlEncode(System.Text.Encoding.UTF8.GetBytes(code));
+            var callbackUrl = Navigation.GetUriWithQueryParameters(
+                Navigation.ToAbsoluteUri("/account/confirm-email").ToString(),
+                new Dictionary<string, object?> { ["userId"] = user.Id, ["code"] = codeEncoded });
+
+            await EmailSender.SendConfirmationLinkAsync(user, _model.Email, callbackUrl);
+
+            Navigation.NavigateTo("/account/check-email", forceLoad: true);
         }
         finally
         {

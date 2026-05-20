@@ -26,9 +26,20 @@ public class BusinessService(ApplicationDbContext db)
         double longitude,
         double radiusKm = 500)
     {
+        // 1 degree latitude is approx 111 km. Calculate bounding box.
+        var latDelta = radiusKm / 111.0;
+        var lngDelta = radiusKm / (111.0 * Math.Cos(latitude * Math.PI / 180.0));
+
+        var minLat = latitude - latDelta;
+        var maxLat = latitude + latDelta;
+        var minLng = longitude - lngDelta;
+        var maxLng = longitude + lngDelta;
+
         var query = db.Businesses
             .Include(b => b.Category)
-            .Where(b => b.IsApproved && b.IsOnline);
+            .Where(b => b.IsApproved && b.IsOnline &&
+                        b.Latitude >= minLat && b.Latitude <= maxLat &&
+                        b.Longitude >= minLng && b.Longitude <= maxLng);
 
         if (categoryId.HasValue)
             query = query.Where(b => b.CategoryId == categoryId);
@@ -48,6 +59,9 @@ public class BusinessService(ApplicationDbContext db)
 
     public async Task<Business> RegisterAsync(Business business)
     {
+        if (await db.Businesses.AnyAsync(b => b.OwnerId == business.OwnerId))
+            throw new InvalidOperationException("User already has a business registered.");
+
         db.Businesses.Add(business);
         await db.SaveChangesAsync();
         return business;

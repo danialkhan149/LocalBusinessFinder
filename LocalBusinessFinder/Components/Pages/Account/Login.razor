@@ -60,6 +60,21 @@
             </button>
         </EditForm>
 
+        <div class="d-flex align-items-center my-4">
+            <hr class="flex-grow-1 border-light m-0" style="opacity: 0.2;" />
+            <span class="px-3 text-white-50 small fw-bold">OR</span>
+            <hr class="flex-grow-1 border-light m-0" style="opacity: 0.2;" />
+        </div>
+
+        <form action="/account/external-login" method="post">
+            <input type="hidden" name="provider" value="Google" />
+            <input type="hidden" name="returnUrl" value="@ReturnUrl" />
+            <button type="submit" class="btn btn-light w-100 py-3 fs-5 rounded-pill shadow-sm d-flex justify-content-center align-items-center gap-2 fw-bold" disabled="@_loading" style="color: #3c4043;">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="Google" style="width: 24px; height: 24px;" />
+                Sign in with Google
+            </button>
+        </form>
+
         <p class="mt-4 text-center text-white-50 mb-0">
             Don't have an account? <a href="/account/register" class="text-accent fw-bold text-decoration-none">Register</a>
         </p>
@@ -95,6 +110,13 @@
             if (!user.IsActive)
             {
                 _error = "Account is disabled.";
+                return;
+            }
+
+            var featureRolloutDate = new DateTime(2026, 5, 20, 0, 0, 0, DateTimeKind.Utc);
+            if (!user.EmailConfirmed && user.CreatedAt > featureRolloutDate)
+            {
+                _error = "Please check your inbox and verify your email address before logging in.";
                 return;
             }
 

@@ -214,6 +214,8 @@
 
     private async Task SubmitAsync()
     {
+        if (_submitting) return;
+
         var state = await AuthState.GetAuthenticationStateAsync();
         var userId = state.User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
         if (userId == null) return;
@@ -231,42 +233,50 @@
             return;
         }
 
-        if (_existing != null)
+        try
         {
-            _existing.CategoryId = _model.CategoryId;
-            _existing.Name = _model.Name;
-            _existing.Description = _model.Description;
-            _existing.Address = _model.Address;
-            _existing.Phone = _model.Phone;
-            _existing.Latitude = _model.Latitude;
-            _existing.Longitude = _model.Longitude;
-            _existing.HourlyRate = _model.HourlyRate;
-
-            await BusinessService.UpdateAsync(_existing);
-            _isEditing = false;
-            _submitting = false;
-
-            // Reload the business details
-            _existing = await BusinessService.GetByOwnerIdAsync(userId);
-            StateHasChanged();
-        }
-        else
-        {
-            await BusinessService.RegisterAsync(new Business
+            if (_existing != null)
             {
-                OwnerId = userId,
-                CategoryId = _model.CategoryId,
-                Name = _model.Name,
-                Description = _model.Description,
-                Address = _model.Address,
-                Phone = _model.Phone,
-                Latitude = _model.Latitude,
-                Longitude = _model.Longitude,
-                HourlyRate = _model.HourlyRate,
-                IsApproved = false,
-                IsOnline = false
-            });
-            Navigation.NavigateTo("/owner", forceLoad: true);
+                _existing.CategoryId = _model.CategoryId;
+                _existing.Name = _model.Name;
+                _existing.Description = _model.Description;
+                _existing.Address = _model.Address;
+                _existing.Phone = _model.Phone;
+                _existing.Latitude = _model.Latitude;
+                _existing.Longitude = _model.Longitude;
+                _existing.HourlyRate = _model.HourlyRate;
+
+                await BusinessService.UpdateAsync(_existing);
+                _isEditing = false;
+                _submitting = false;
+
+                // Reload the business details
+                _existing = await BusinessService.GetByOwnerIdAsync(userId);
+                StateHasChanged();
+            }
+            else
+            {
+                await BusinessService.RegisterAsync(new Business
+                {
+                    OwnerId = userId,
+                    CategoryId = _model.CategoryId,
+                    Name = _model.Name,
+                    Description = _model.Description,
+                    Address = _model.Address,
+                    Phone = _model.Phone,
+                    Latitude = _model.Latitude,
+                    Longitude = _model.Longitude,
+                    HourlyRate = _model.HourlyRate,
+                    IsApproved = false,
+                    IsOnline = false
+                });
+                Navigation.NavigateTo("/owner", forceLoad: true);
+            }
+        }
+        catch (Exception ex)
+        {
+            await JS.InvokeVoidAsync("alert", $"Registration failed: {ex.Message}");
+            _submitting = false;
         }
     }
 

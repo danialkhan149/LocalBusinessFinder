@@ -225,6 +225,7 @@ else
     //private ElementReference _chatContainer;
     private double _mapLat = 33.5984, _mapLng = 73.0441;
     private bool _trackingActive;
+    private bool _isDisposed;
     private int? _watchId;
     private DotNetObjectReference<RequestDetail>? _dotNetRef;
     private readonly System.Threading.SemaphoreSlim _dbLock = new System.Threading.SemaphoreSlim(1, 1);
@@ -346,14 +347,27 @@ else
     [JSInvokable]
     public async Task OnChatMessage(object msg)
     {
+        if (_isDisposed) return;
         await LoadRequestAsync();
-        StateHasChanged();
-        try { await JS.InvokeVoidAsync("scrollToChatBottom"); } catch { }
+        
+        if (_request?.Status == RequestStatus.Completed && _watchId.HasValue)
+        {
+            try { await JS.InvokeVoidAsync("lbfSignalR.clearWatch", _watchId); } catch { }
+            _watchId = null;
+            _trackingActive = false;
+        }
+
+        if (!_isDisposed)
+        {
+            StateHasChanged();
+            try { await JS.InvokeVoidAsync("scrollToChatBottom"); } catch { }
+        }
     }
 
     [JSInvokable]
     public async Task OnLocationUpdate(object loc)
     {
+        if (_isDisposed) return;
         var dict = System.Text.Json.JsonSerializer.Deserialize<Dictionary<string, System.Text.Json.JsonElement>>(
             System.Text.Json.JsonSerializer.Serialize(loc));
         if (dict == null) return;
@@ -373,6 +387,7 @@ else
     [JSInvokable]
     public async Task OnGpsUpdate(double lat, double lng)
     {
+        if (_isDisposed) return;
         await JS.InvokeVoidAsync("lbfSignalR.sendLocation", RequestId, lat, lng);
     }
 
@@ -511,6 +526,7 @@ else
 
     public async ValueTask DisposeAsync()
     {
+        _isDisposed = true;
         try
         {
             if (_watchId.HasValue)

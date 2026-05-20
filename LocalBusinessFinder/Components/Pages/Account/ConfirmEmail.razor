@@ -1,0 +1,102 @@
+@page "/account/confirm-email"
+@inject UserManager<ApplicationUser> UserManager
+@inject SignInManager<ApplicationUser> SignInManager
+@inject NavigationManager Navigation
+
+<PageTitle>Confirm Email - Pindi Ki Khoj</PageTitle>
+
+<div class="auth-page position-relative overflow-hidden d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+    <div class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 0; pointer-events: none; opacity: 0.7;">
+        <img src="/images/map.png" style="width: 100%; height: 100%; object-fit: cover;" alt="" />
+    </div>
+
+    <div class="auth-card glass-panel position-relative z-1 p-4 p-md-5 shadow-lg text-white text-center" style="background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); max-width: 500px;">
+        @if (_loading)
+        {
+            <div class="spinner-border text-accent mb-3" role="status" style="width: 3rem; height: 3rem;">
+                <span class="visually-hidden">Loading...</span>
+            </div>
+            <h2 class="fw-bolder">Verifying...</h2>
+            <p class="text-white-50">Please wait while we verify your email.</p>
+        }
+        else if (_success)
+        {
+            <i class="bi bi-check-circle-fill text-success display-1 mb-3"></i>
+            <h2 class="fw-bolder mb-3">Email Verified!</h2>
+            <p class="text-white-50 mb-4 fs-5">Thank you for confirming your email address. You can now access your account.</p>
+            <a href="/" class="btn btn-gradient w-100 py-3 fs-5 rounded-pill shadow">Continue to App</a>
+        }
+        else
+        {
+            <i class="bi bi-x-circle-fill text-danger display-1 mb-3"></i>
+            <h2 class="fw-bolder mb-3">Verification Failed</h2>
+            <p class="text-white-50 mb-4 fs-5">@_error</p>
+            <a href="/account/login" class="btn btn-outline-light w-100 py-3 fs-5 rounded-pill shadow">Return to Login</a>
+        }
+    </div>
+</div>
+
+@code {
+    [SupplyParameterFromQuery] public string? UserId { get; set; }
+    [SupplyParameterFromQuery] public string? Code { get; set; }
+
+    private bool _loading = true;
+    private bool _success = false;
+    private string? _error;
+
+    protected override async Task OnInitializedAsync()
+    {
+        if (UserId == null || Code == null)
+        {
+            _error = "Invalid verification link.";
+            _loading = false;
+            return;
+        }
+
+        var user = await UserManager.FindByIdAsync(UserId);
+        if (user == null)
+        {
+            _error = "User not found.";
+            _loading = false;
+            return;
+        }
+
+        try
+        {
+            var codeDecoded = System.Text.Encoding.UTF8.GetString(Microsoft.AspNetCore.WebUtilities.WebEncoders.Base64UrlDecode(Code));
+            var result = await UserManager.ConfirmEmailAsync(user, codeDecoded);
+
+            if (result.Succeeded)
+            {
+                _success = true;
+                await SignInManager.SignInAsync(user, isPersistent: true);
+                
+                // Let's redirect them based on their role
+                var roles = await UserManager.GetRolesAsync(user);
+                var dest = roles.FirstOrDefault() switch
+                {
+                    AppRoles.Admin => "/admin",
+                    AppRoles.BusinessOwner => "/owner/register",
+                    AppRoles.User => "/user",
+                    _ => "/"
+                };
+
+                // Wait 2 seconds so they see the success message before redirect
+                await Task.Delay(2000);
+                Navigation.NavigateTo(dest, forceLoad: true);
+            }
+            else
+            {
+                _error = "Error confirming your email. The link might be expired or invalid.";
+            }
+        }
+        catch
+        {
+            _error = "Invalid verification code format.";
+        }
+        finally
+        {
+            _loading = false;
+        }
+    }
+}

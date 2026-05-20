@@ -1,0 +1,25 @@
+@page "/account/check-email"
+
+<PageTitle>Check Your Email - Pindi Ki Khoj</PageTitle>
+
+<div class="auth-page position-relative overflow-hidden d-flex align-items-center justify-content-center" style="min-height: 100vh;">
+    <!-- Background Watermark Logo -->
+    <div class="position-absolute top-0 start-0 w-100 h-100" style="z-index: 0; pointer-events: none; opacity: 0.7;">
+        <img src="/images/map.png" style="width: 100%; height: 100%; object-fit: cover;" alt="" />
+    </div>
+
+    <div class="auth-card glass-panel position-relative z-1 p-4 p-md-5 shadow-lg text-white text-center" style="background: rgba(30, 58, 95, 0.7); backdrop-filter: blur(16px); border: 1px solid rgba(255, 255, 255, 0.15); max-width: 500px;">
+        <i class="bi bi-envelope-check text-accent display-1 mb-3"></i>
+        <h2 class="fw-bolder mb-3">Check Your Inbox</h2>
+        <p class="text-white-50 mb-4 fs-5">
+            We've sent an email with a confirmation link to your email address. 
+            Please click the link to verify your account.
+        </p>
+        <p class="text-white-50 small mb-4">
+            If you don't see it, be sure to check your spam or junk folder.
+        </p>
+        <a href="/account/login" class="btn btn-gradient w-100 py-3 fs-5 rounded-pill shadow">
+            Return to Login
+        </a>
+    </div>
+</div>

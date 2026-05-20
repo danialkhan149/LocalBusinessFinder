@@ -145,10 +145,10 @@
         _business = await BusinessService.GetByOwnerIdAsync(userId);
         if (_business == null) return;
 
-        var requests = await RequestService.GetForBusinessAsync(_business.Id);
-        _pendingCount = requests.Count(r => r.Status is RequestStatus.Pending or RequestStatus.Negotiating or RequestStatus.Accepted);
-        _activeCount = requests.Count(r => r.Status is RequestStatus.InProgress or RequestStatus.DealAgreed);
-        _completedCount = requests.Count(r => r.Status == RequestStatus.Completed);
+        var stats = await RequestService.GetDashboardStatsAsync(_business.Id);
+        _pendingCount = stats.Pending;
+        _activeCount = stats.Active;
+        _completedCount = stats.Completed;
     }
 
     private async Task SaveOnlineAsync()
