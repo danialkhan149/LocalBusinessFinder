@@ -71,14 +71,20 @@ window.lbfSignalR = {
     trackingConnection: null,
 
     async connectChat(requestId, dotNetRef) {
-        if (this.chatConnection) await this.chatConnection.stop();
+        if (this.chatConnection) {
+            try { await this.chatConnection.stop(); } catch (e) { console.warn("Chat stop:", e); }
+        }
         this.chatConnection = new signalR.HubConnectionBuilder()
             .withUrl('/hubs/chat')
             .withAutomaticReconnect()
             .build();
         this.chatConnection.on('ReceiveMessage', (msg) => dotNetRef.invokeMethodAsync('OnChatMessage', msg));
-        await this.chatConnection.start();
-        await this.chatConnection.invoke('JoinRequest', requestId);
+        try {
+            await this.chatConnection.start();
+            await this.chatConnection.invoke('JoinRequest', requestId);
+        } catch (err) {
+            console.error("Chat connect:", err);
+        }
     },
 
     async sendChat(requestId, content, isOffer, offerAmount) {
@@ -87,14 +93,20 @@ window.lbfSignalR = {
     },
 
     async connectTracking(requestId, dotNetRef) {
-        if (this.trackingConnection) await this.trackingConnection.stop();
+        if (this.trackingConnection) {
+            try { await this.trackingConnection.stop(); } catch (e) { console.warn("Tracking stop:", e); }
+        }
         this.trackingConnection = new signalR.HubConnectionBuilder()
             .withUrl('/hubs/tracking')
             .withAutomaticReconnect()
             .build();
         this.trackingConnection.on('LocationUpdated', (loc) => dotNetRef.invokeMethodAsync('OnLocationUpdate', loc));
-        await this.trackingConnection.start();
-        await this.trackingConnection.invoke('JoinTracking', requestId);
+        try {
+            await this.trackingConnection.start();
+            await this.trackingConnection.invoke('JoinTracking', requestId);
+        } catch (err) {
+            console.error("Tracking connect:", err);
+        }
     },
 
     async sendLocation(requestId, lat, lng) {
@@ -103,8 +115,14 @@ window.lbfSignalR = {
     },
 
     async disconnectAll() {
-        if (this.chatConnection) { await this.chatConnection.stop(); this.chatConnection = null; }
-        if (this.trackingConnection) { await this.trackingConnection.stop(); this.trackingConnection = null; }
+        if (this.chatConnection) {
+            try { await this.chatConnection.stop(); } catch (e) { }
+            this.chatConnection = null;
+        }
+        if (this.trackingConnection) {
+            try { await this.trackingConnection.stop(); } catch (e) { }
+            this.trackingConnection = null;
+        }
     },
 
     async getCurrentPosition() {
